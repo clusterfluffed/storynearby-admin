@@ -48,7 +48,10 @@ export default function LocationsPage() {
             </div>
             <div className="flex items-center">
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  window.location.href = '/'
+                }}
                 className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
               >
                 Sign Out

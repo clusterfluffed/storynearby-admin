@@ -123,21 +123,20 @@ export default function AcceptInvitePage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
-          <div className="text-center">
-            <div className="text-red-600 text-5xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invite</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            
-              href="/"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Go to Home
-            </a>
-          </div>
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invite</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <a href="/" className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Go to Home
+          </a>
         </div>
       </div>
     )
+  }
+
+  if (!inviteData) {
+    return null
   }
 
   return (
@@ -146,7 +145,7 @@ export default function AcceptInvitePage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">Accept Invite</h2>
           <p className="mt-2 text-sm text-gray-600">
-            You have been invited to join <strong>{inviteData?.tenants.name}</strong>
+            You have been invited to join <strong>{inviteData.tenants.name}</strong>
           </p>
         </div>
 
@@ -157,7 +156,7 @@ export default function AcceptInvitePage() {
               <input
                 type="email"
                 disabled
-                value={inviteData?.email}
+                value={inviteData.email}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
               />
             </div>

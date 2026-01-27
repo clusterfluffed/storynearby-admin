@@ -1,13 +1,16 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { supabase, type Location } from '@/lib/supabase'
 import { MapPin, Plus, Edit, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
 export default function LocationsPage() {
-  const { data: locations, isLoading } = useQuery({
+  const router = useRouter()
+
+  const { data: locations, isLoading, refetch } = useQuery({
     queryKey: ['locations'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -19,6 +22,24 @@ export default function LocationsPage() {
       return data as Location[]
     },
   })
+
+  const handleDelete = async (locationId: string) => {
+    if (!confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('locations')
+      .delete()
+      .eq('id', locationId)
+
+    if (error) {
+      alert('Error deleting location: ' + error.message)
+    } else {
+      // Refresh the list
+      refetch()
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -65,7 +86,11 @@ export default function LocationsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {locations.map((location) => (
-                  <tr key={location.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={location.id} 
+                    onClick={() => router.push(`/dashboard/locations/${location.id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="h-5 w-5 text-gray-400 mr-2" />
@@ -97,11 +122,18 @@ export default function LocationsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link 
                         href={`/dashboard/locations/${location.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-blue-600 hover:text-blue-900 mr-4"
                       >
                         <Edit className="h-5 w-5 inline" />
                       </Link>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(location.id)
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
                         <Trash2 className="h-5 w-5 inline" />
                       </button>
                     </td>

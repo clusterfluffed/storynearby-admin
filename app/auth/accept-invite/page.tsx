@@ -55,11 +55,12 @@ export default function AcceptInvitePage() {
       setTenantId(data.tenant_id)
       setRole(data.role)
       
-      // Handle tenants data - it comes as an array from Supabase
-      if (Array.isArray(data.tenants) && data.tenants.length > 0) {
-        setTenantName(data.tenants[0].name)
-      } else if (data.tenants && typeof data.tenants === 'object') {
-        setTenantName(data.tenants.name)
+      // Handle tenants data - cast to any to avoid TypeScript issues
+      const tenantsData: any = data.tenants
+      if (Array.isArray(tenantsData) && tenantsData.length > 0) {
+        setTenantName(tenantsData[0].name)
+      } else if (tenantsData && tenantsData.name) {
+        setTenantName(tenantsData.name)
       } else {
         setTenantName('the organization')
       }
@@ -70,7 +71,7 @@ export default function AcceptInvitePage() {
     loadInvite()
   }, [token])
 
-  const handleAcceptInvite = async (e) => {
+  const handleAcceptInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
     setError('')

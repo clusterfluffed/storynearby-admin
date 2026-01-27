@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Save, Trash2, Edit2, Eye } from 'lucide-react'
+import { MapPin, Save, Trash2, Edit2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -28,33 +28,33 @@ export default function LocationDetailPage() {
   })
 
   useEffect(() => {
-    loadLocation()
-  }, [locationId])
+    async function loadLocation() {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('id', locationId)
+        .single()
 
-  const loadLocation = async () => {
-    const { data, error } = await supabase
-      .from('locations')
-      .select('*')
-      .eq('id', locationId)
-      .single()
+      if (error) {
+        setError('Location not found')
+        setLoading(false)
+        return
+      }
 
-    if (error) {
-      setError('Location not found')
+      setFormData({
+        name: data.name,
+        description: data.description || '',
+        address: data.address || '',
+        lat: data.lat.toString(),
+        lng: data.lng.toString(),
+        featured: data.featured,
+        active: data.active,
+      })
       setLoading(false)
-      return
     }
 
-    setFormData({
-      name: data.name,
-      description: data.description || '',
-      address: data.address || '',
-      lat: data.lat.toString(),
-      lng: data.lng.toString(),
-      featured: data.featured,
-      active: data.active,
-    })
-    setLoading(false)
-  }
+    loadLocation()
+  }, [locationId])
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,7 +82,25 @@ export default function LocationDetailPage() {
 
     setEditMode(false)
     setSaving(false)
-    loadLocation()
+    
+    // Reload the location data
+    const { data } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('id', locationId)
+      .single()
+
+    if (data) {
+      setFormData({
+        name: data.name,
+        description: data.description || '',
+        address: data.address || '',
+        lat: data.lat.toString(),
+        lng: data.lng.toString(),
+        featured: data.featured,
+        active: data.active,
+      })
+    }
   }
 
   const handleDelete = async () => {
@@ -101,6 +119,29 @@ export default function LocationDetailPage() {
     }
 
     router.push('/dashboard/locations')
+  }
+
+  const handleCancelEdit = async () => {
+    setEditMode(false)
+    
+    // Reload original data
+    const { data } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('id', locationId)
+      .single()
+
+    if (data) {
+      setFormData({
+        name: data.name,
+        description: data.description || '',
+        address: data.address || '',
+        lat: data.lat.toString(),
+        lng: data.lng.toString(),
+        featured: data.featured,
+        active: data.active,
+      })
+    }
   }
 
   if (loading) {
@@ -266,10 +307,7 @@ export default function LocationDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditMode(false)
-                    loadLocation()
-                  }}
+                  onClick={handleCancelEdit}
                   className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Cancel

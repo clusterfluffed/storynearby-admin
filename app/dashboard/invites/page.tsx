@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { Mail, Copy, Check, Trash2, Plus, MapPin } from 'lucide-react'
-import Link from 'next/link'
+import { Mail, Copy, Check, Trash2, Plus, Building2 } from 'lucide-react'
+import AdminNav from '@/app/components/AdminNav'
 
 type Invite = {
   id: string
@@ -20,14 +20,21 @@ type Invite = {
 type Tenant = {
   id: string
   name: string
+  slug: string
+  active: boolean
 }
 
 export default function InvitesPage() {
   const queryClient = useQueryClient()
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showCreateInviteForm, setShowCreateInviteForm] = useState(false)
+  const [showCreateTenantForm, setShowCreateTenantForm] = useState(false)
   const [email, setEmail] = useState('')
   const [tenantId, setTenantId] = useState('')
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  
+  // Tenant form fields
+  const [tenantName, setTenantName] = useState('')
+  const [tenantSlug, setTenantSlug] = useState('')
 
   const { data: invites, isLoading } = useQuery({
     queryKey: ['invites'],
@@ -39,7 +46,6 @@ export default function InvitesPage() {
       
       if (error) throw error
       
-      // Handle the tenants data structure
       return data.map((invite: any) => ({
         ...invite,
         tenants: Array.isArray(invite.tenants) && invite.tenants.length > 0 
@@ -54,8 +60,7 @@ export default function InvitesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name')
-        .eq('active', true)
+        .select('id, name, slug, active')
         .order('name')
       
       if (error) throw error
@@ -88,7 +93,27 @@ export default function InvitesPage() {
       queryClient.invalidateQueries({ queryKey: ['invites'] })
       setEmail('')
       setTenantId('')
-      setShowCreateForm(false)
+      setShowCreateInviteForm(false)
+    },
+  })
+
+  const createTenant = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('tenants')
+        .insert({
+          name: tenantName,
+          slug: tenantSlug,
+          active: true
+        })
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      setTenantName('')
+      setTenantSlug('')
+      setShowCreateTenantForm(false)
     },
   })
 
@@ -111,6 +136,11 @@ export default function InvitesPage() {
     createInvite.mutate()
   }
 
+  const handleCreateTenant = (e: React.FormEvent) => {
+    e.preventDefault()
+    createTenant.mutate()
+  }
+
   const copyInviteLink = (token: string) => {
     const inviteUrl = `${window.location.origin}/auth/accept-invite?token=${token}`
     navigator.clipboard.writeText(inviteUrl)
@@ -126,63 +156,122 @@ export default function InvitesPage() {
     })
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/'
+  // Auto-generate slug from name
+  const handleTenantNameChange = (name: string) => {
+    setTenantName(name)
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    setTenantSlug(slug)
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="flex items-center">
-                <Mail className="h-8 w-8 text-blue-600" />
-                <span className="ml-2 text-xl font-bold text-gray-900">StoryNearby Admin</span>
-              </Link>
-              <div className="flex space-x-4">
-                <Link 
-                  href="/dashboard/locations" 
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:border-b-2 hover:border-gray-300"
-                >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Locations
-                </Link>
-                <Link 
-                  href="/dashboard/invites" 
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Invites
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AdminNav activeTab="invites" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">User Invites</h1>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Create Invite
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowCreateTenantForm(!showCreateTenantForm)}
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Building2 className="h-5 w-5 mr-2" />
+              Add County
+            </button>
+            <button
+              onClick={() => setShowCreateInviteForm(!showCreateInviteForm)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Create Invite
+            </button>
+          </div>
         </div>
 
-        {showCreateForm && (
+        {/* Create Tenant Form */}
+        {showCreateTenantForm && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New County</h2>
+            <form onSubmit={handleCreateTenant} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  County Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={tenantName}
+                  onChange={(e) => handleTenantNameChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                  placeholder="Franklin County Historical Society"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Slug (auto-generated)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-green-500 focus:border-green-500"
+                  placeholder="franklin-county-historical-society"
+                />
+                <p className="mt-1 text-xs text-gray-500">Used for URL identification</p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={createTenant.isPending}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {createTenant.isPending ? 'Creating...' : 'Create County'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateTenantForm(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Counties List */}
+        {tenants && tenants.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Counties</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tenants.map((tenant) => (
+                <div key={tenant.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{tenant.name}</h3>
+                      <p className="text-sm text-gray-500">{tenant.slug}</p>
+                    </div>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      tenant.active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {tenant.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create Invite Form */}
+        {showCreateInviteForm && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Invite</h2>
             <form onSubmit={handleCreateInvite} className="space-y-4">
@@ -210,7 +299,7 @@ export default function InvitesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select a county...</option>
-                  {tenants?.map((tenant) => (
+                  {tenants?.filter(t => t.active).map((tenant) => (
                     <option key={tenant.id} value={tenant.id}>
                       {tenant.name}
                     </option>
@@ -227,7 +316,7 @@ export default function InvitesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={() => setShowCreateInviteForm(false)}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Cancel
@@ -237,6 +326,7 @@ export default function InvitesPage() {
           </div>
         )}
 
+        {/* Invites Table */}
         {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>

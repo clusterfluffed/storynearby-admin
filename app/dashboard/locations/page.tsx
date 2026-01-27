@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase, type Location } from '@/lib/supabase'
-import { MapPin, Plus, Edit, Trash2 } from 'lucide-react'
+import { MapPin, Plus, Edit, Trash2, Mail, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LocationsPage() {
@@ -24,11 +24,35 @@ export default function LocationsPage() {
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-8">
               <Link href="/" className="flex items-center">
-                <MapPin className="h-8 w-8 text-primary-600" />
+                <MapPin className="h-8 w-8 text-blue-600" />
                 <span className="ml-2 text-xl font-bold text-gray-900">StoryNearby Admin</span>
               </Link>
+              <div className="flex space-x-4">
+                <Link 
+                  href="/dashboard/locations" 
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Locations
+                </Link>
+                <Link 
+                  href="/dashboard/invites" 
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:border-b-2 hover:border-gray-300"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Invites
+                </Link>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
@@ -39,7 +63,7 @@ export default function LocationsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Historical Locations</h1>
           <Link 
             href="/dashboard/locations/new"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-5 w-5 mr-2" />
             Add Location
@@ -48,7 +72,7 @@ export default function LocationsPage() {
 
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
             <p className="mt-4 text-gray-600">Loading locations...</p>
           </div>
         ) : locations && locations.length > 0 ? (
@@ -107,7 +131,7 @@ export default function LocationsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link 
                         href={`/dashboard/locations/${location.id}`}
-                        className="text-primary-600 hover:text-primary-900 mr-4"
+                        className="text-blue-600 hover:text-blue-900 mr-4"
                       >
                         <Edit className="h-5 w-5 inline" />
                       </Link>
@@ -128,7 +152,7 @@ export default function LocationsPage() {
             <div className="mt-6">
               <Link
                 href="/dashboard/locations/new"
-                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Add Location

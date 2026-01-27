@@ -10,7 +10,7 @@ type InviteData = {
   role: string
   used: boolean
   expires_at: string
-  tenants: { name: string }
+  tenants: { name: string } | null
 }
 
 export default function AcceptInvitePage() {
@@ -57,7 +57,7 @@ export default function AcceptInvitePage() {
         return
       }
 
-      setInviteData(data as InviteData)
+      setInviteData(data)
       setLoading(false)
     }
 
@@ -145,7 +145,7 @@ export default function AcceptInvitePage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">Accept Invite</h2>
           <p className="mt-2 text-sm text-gray-600">
-            You have been invited to join <strong>{inviteData.tenants.name}</strong>
+            You have been invited to join <strong>{inviteData.tenants?.name || 'the organization'}</strong>
           </p>
         </div>
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Save, X } from 'lucide-react'
+import { MapPin, Save, X, Upload, Trash2, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -11,6 +11,7 @@ export default function NewLocationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [uploadingImages, setUploadingImages] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -21,6 +22,66 @@ export default function NewLocationPage() {
     featured: false,
     active: true,
   })
+
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    
+    // Limit to 5 images total
+    const remainingSlots = 5 - imageFiles.length
+    const filesToAdd = files.slice(0, remainingSlots)
+    
+    if (files.length > remainingSlots) {
+      alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
+    }
+
+    // Create preview URLs
+    const newPreviews = filesToAdd.map(file => URL.createObjectURL(file))
+    
+    setImageFiles([...imageFiles, ...filesToAdd])
+    setImagePreviews([...imagePreviews, ...newPreviews])
+  }
+
+  const removeImage = (index: number) => {
+    // Revoke preview URL to prevent memory leaks
+    URL.revokeObjectURL(imagePreviews[index])
+    
+    setImageFiles(imageFiles.filter((_, i) => i !== index))
+    setImagePreviews(imagePreviews.filter((_, i) => i !== index))
+  }
+
+  const uploadImages = async (locationId: string) => {
+    const uploadedUrls: string[] = []
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i]
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${locationId}/${Date.now()}-${i}.${fileExt}`
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        continue
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(fileName)
+
+      uploadedUrls.push(publicUrl)
+    }
+
+    return uploadedUrls
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,19 +107,40 @@ export default function NewLocationPage() {
       return
     }
 
-    const { error: insertError } = await supabase
+    // Insert location first
+    const { data: location, error: insertError } = await supabase
       .from('locations')
       .insert({
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        address: formData.address,
         lat: parseFloat(formData.lat),
         lng: parseFloat(formData.lng),
+        featured: formData.featured,
+        active: formData.active,
         tenant_id: profile.tenant_id,
       })
+      .select()
+      .single()
 
-    if (insertError) {
-      setError(insertError.message)
+    if (insertError || !location) {
+      setError(insertError?.message || 'Failed to create location')
       setLoading(false)
       return
+    }
+
+    // Upload images if any
+    if (imageFiles.length > 0) {
+      setUploadingImages(true)
+      const imageUrls = await uploadImages(location.id)
+      
+      // Update location with image URLs
+      await supabase
+        .from('locations')
+        .update({ images: imageUrls })
+        .eq('id', location.id)
+      
+      setUploadingImages(false)
     }
 
     router.push('/dashboard/locations')
@@ -106,65 +188,184 @@ export default function NewLocationPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Historic Courthouse" />
+                <input 
+                  type="text" 
+                  required 
+                  value={formData.name} 
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                  placeholder="Historic Courthouse" 
+                />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea rows={4} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Built in 1856..." />
+                <textarea 
+                  rows={4} 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                  placeholder="Built in 1856..." 
+                />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="123 Main St" />
+                <input 
+                  type="text" 
+                  value={formData.address} 
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                  placeholder="123 Main St" 
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Latitude *</label>
-                  <input type="number" step="any" required value={formData.lat} onChange={(e) => setFormData({ ...formData, lat: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="40.0150" />
+                  <input 
+                    type="number" 
+                    step="any" 
+                    required 
+                    value={formData.lat} 
+                    onChange={(e) => setFormData({ ...formData, lat: e.target.value })} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                    placeholder="40.0150" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Longitude *</label>
-                  <input type="number" step="any" required value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="-83.0133" />
+                  <input 
+                    type="number" 
+                    step="any" 
+                    required 
+                    value={formData.lng} 
+                    onChange={(e) => setFormData({ ...formData, lng: e.target.value })} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                    placeholder="-83.0133" 
+                  />
                 </div>
               </div>
+
+              {/* Image Upload Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Images ({imageFiles.length}/5)
+                </label>
+                
+                {imagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={preview} 
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {imageFiles.length < 5 && (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                    />
+                  </label>
+                )}
+              </div>
+
               <div className="flex items-center space-x-6">
                 <label className="flex items-center">
-                  <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={formData.featured} 
+                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} 
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                  />
                   <span className="ml-2 text-sm text-gray-700">Featured Location</span>
                 </label>
                 <label className="flex items-center">
-                  <input type="checkbox" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={formData.active} 
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })} 
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                  />
                   <span className="ml-2 text-sm text-gray-700">Active</span>
                 </label>
               </div>
+
               <div className="flex space-x-3 pt-4">
-                <button type="submit" disabled={loading} className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                <button 
+                  type="submit" 
+                  disabled={loading || uploadingImages} 
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
                   <Save className="h-5 w-5 mr-2" />
-                  {loading ? 'Saving...' : 'Save Location'}
+                  {uploadingImages ? 'Uploading images...' : loading ? 'Saving...' : 'Save Location'}
                 </button>
-                <Link href="/dashboard/locations" className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                <Link 
+                  href="/dashboard/locations" 
+                  className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
                   <X className="h-5 w-5 mr-2" />
                   Cancel
                 </Link>
               </div>
             </form>
           </div>
+
+          {/* Map Preview Section */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Location Preview</h2>
             {hasValidCoordinates() ? (
               <div className="space-y-4">
                 <div className="border rounded-lg overflow-hidden">
-                  <iframe width="100%" height="300" frameBorder="0" scrolling="no" src={getMapUrl() || ''}></iframe>
+                  <iframe 
+                    width="100%" 
+                    height="300" 
+                    frameBorder="0" 
+                    scrolling="no" 
+                    src={getMapUrl() || ''}
+                  ></iframe>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Coordinates</h3>
                   <p className="text-sm text-gray-900">Latitude: {parseFloat(formData.lat).toFixed(6)}</p>
                   <p className="text-sm text-gray-900">Longitude: {parseFloat(formData.lng).toFixed(6)}</p>
-                  <a href={getMapLink() || '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800">
+                  <a 
+                    href={getMapLink() || '#'} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800"
+                  >
                     Open in OpenStreetMap →
                   </a>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> The red marker shows where this location will appear on the mobile app map.</p>
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Tip:</strong> The red marker shows where this location will appear on the mobile app map.
+                  </p>
                 </div>
               </div>
             ) : (

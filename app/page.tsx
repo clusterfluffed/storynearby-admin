@@ -12,7 +12,10 @@ export default function Home() {
               <span className="ml-2 text-xl font-bold text-gray-900">StoryNearby Admin</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Link href="/auth/login" className="text-gray-700 hover:text-primary-600">
+              <Link 
+                href="/auth/signin" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Sign In
               </Link>
             </div>
@@ -31,46 +34,48 @@ export default function Home() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mt-12">
-          <Link href="/dashboard/locations" className="block">
-            <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow p-6 border-2 border-transparent hover:border-primary-500">
-              <MapPin className="h-12 w-12 text-primary-600 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Locations</h3>
-              <p className="text-gray-600">
-                Add and manage historical sites, landmarks, and points of interest
-              </p>
-            </div>
-          </Link>
+          <div className="bg-white rounded-lg shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all">
+            <MapPin className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Locations</h3>
+            <p className="text-gray-600">
+              Add and manage historical sites, landmarks, and points of interest
+            </p>
+          </div>
 
-          <Link href="/dashboard/tenants" className="block">
-            <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow p-6 border-2 border-transparent hover:border-primary-500">
-              <Users className="h-12 w-12 text-primary-600 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Counties</h3>
-              <p className="text-gray-600">
-                Manage county organizations and their content
-              </p>
-            </div>
-          </Link>
+          <div className="bg-white rounded-lg shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all">
+            <Users className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Counties</h3>
+            <p className="text-gray-600">
+              Manage county organizations and their content
+            </p>
+          </div>
 
-          <Link href="/dashboard/settings" className="block">
-            <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow p-6 border-2 border-transparent hover:border-primary-500">
-              <Settings className="h-12 w-12 text-primary-600 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Settings</h3>
-              <p className="text-gray-600">
-                Configure app settings, branding, and permissions
-              </p>
-            </div>
-          </Link>
+          <div className="bg-white rounded-lg shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all">
+            <Settings className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Settings</h3>
+            <p className="text-gray-600">
+              Configure app settings, branding, and permissions
+            </p>
+          </div>
         </div>
 
         <div className="mt-16 bg-white rounded-lg shadow-md p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Getting Started</h2>
           <ol className="list-decimal list-inside space-y-3 text-gray-700">
-            <li>Sign in with your admin credentials</li>
+            <li>Sign in with your admin credentials (or sign up for a new account)</li>
             <li>Set up your county tenant organization</li>
             <li>Add historical locations with photos and descriptions</li>
             <li>Upload audio tour content</li>
             <li>Review and publish content to the mobile app</li>
           </ol>
+          <div className="mt-6">
+            <Link 
+              href="/auth/signin"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Get Started →
+            </Link>
+          </div>
         </div>
       </main>
     </div>

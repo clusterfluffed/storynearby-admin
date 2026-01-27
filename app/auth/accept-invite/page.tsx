@@ -8,6 +8,8 @@ type InviteData = {
   email: string
   tenant_id: string
   role: string
+  used: boolean
+  expires_at: string
   tenants: { name: string }
 }
 
@@ -33,14 +35,7 @@ export default function AcceptInvitePage() {
 
       const { data, error } = await supabase
         .from('invites')
-        .select(`
-          email,
-          tenant_id,
-          role,
-          used,
-          expires_at,
-          tenants (name)
-        `)
+        .select('email, tenant_id, role, used, expires_at, tenants (name)')
         .eq('token', token)
         .single()
 
@@ -76,7 +71,6 @@ export default function AcceptInvitePage() {
 
     if (!inviteData || !token) return
 
-    // Create the user account
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: inviteData.email,
       password,
@@ -89,7 +83,6 @@ export default function AcceptInvitePage() {
     }
 
     if (authData.user) {
-      // Update profile with tenant and name
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -105,13 +98,11 @@ export default function AcceptInvitePage() {
         return
       }
 
-      // Mark invite as used
       await supabase
         .from('invites')
         .update({ used: true })
         .eq('token', token)
 
-      // Redirect to dashboard
       router.push('/dashboard/locations')
     }
 
@@ -155,7 +146,7 @@ export default function AcceptInvitePage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">Accept Invite</h2>
           <p className="mt-2 text-sm text-gray-600">
-            You've been invited to join <strong>{inviteData?.tenants.name}</strong>
+            You have been invited to join <strong>{inviteData?.tenants.name}</strong>
           </p>
         </div>
 

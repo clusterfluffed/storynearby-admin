@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocoding'
+import imageCompression from 'browser-image-compression'
 import { MapPin, Save, Trash2, Edit2, Upload, X, Search } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
@@ -19,6 +20,7 @@ export default function LocationDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
+  const [compressing, setCompressing] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -94,7 +96,7 @@ export default function LocationDetailPage() {
     }
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     
     const maxSize = 5 * 1024 * 1024
@@ -114,10 +116,42 @@ export default function LocationDetailPage() {
       alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
     }
 
-    const newPreviews = filesToAdd.map(file => URL.createObjectURL(file))
-    
-    setNewImageFiles([...newImageFiles, ...filesToAdd])
-    setNewImagePreviews([...newImagePreviews, ...newPreviews])
+    if (filesToAdd.length === 0) return
+
+    const options = {
+      maxSizeMB: 0.8,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+      fileType: 'image/jpeg'
+    }
+
+    try {
+      setCompressing(true)
+      
+      const compressedFiles = await Promise.all(
+        filesToAdd.map(async (file) => {
+          try {
+            const compressed = await imageCompression(file, options)
+            console.log(`${file.name}: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressed.size / 1024 / 1024).toFixed(2)}MB`)
+            return compressed
+          } catch (err) {
+            console.error('Compression error:', err)
+            return file
+          }
+        })
+      )
+      
+      setCompressing(false)
+      
+      const newPreviews = compressedFiles.map(file => URL.createObjectURL(file))
+      
+      setNewImageFiles([...newImageFiles, ...compressedFiles])
+      setNewImagePreviews([...newImagePreviews, ...newPreviews])
+    } catch (err) {
+      setCompressing(false)
+      setError('Error compressing images. Please try again.')
+      console.error('Compression error:', err)
+    }
   }
 
   const removeExistingImage = (index: number) => {
@@ -422,6 +456,13 @@ export default function LocationDetailPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Images ({totalImages}/5)</label>
                   
+                  {compressing && (
+                    <div className="mb-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded flex items-center">
+                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent mr-3"></div>
+                      <span className="text-sm">Compressing images, please wait...</span>
+                    </div>
+                  )}
+
                   {(existingImages.length > 0 || newImagePreviews.length > 0) && (
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       {existingImages.map((url, index) => (
@@ -449,9 +490,9 @@ export default function LocationDetailPage() {
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB per file)</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB, auto-compressed)</p>
                       </div>
-                      <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageSelect} />
+                      <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageSelect} disabled={compressing} />
                     </label>
                   )}
                 </div>
@@ -468,7 +509,7 @@ export default function LocationDetailPage() {
                 </div>
 
                 <div className="flex space-x-3 pt-4">
-                  <button type="submit" disabled={saving || uploadingImages} className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  <button type="submit" disabled={saving || uploadingImages || compressing} className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                     <Save className="h-5 w-5 mr-2" />
                     {uploadingImages ? 'Uploading...' : saving ? 'Saving...' : 'Save Changes'}
                   </button>

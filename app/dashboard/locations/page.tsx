@@ -194,14 +194,14 @@ export default function LocationsPage() {
                       <User className="h-4 w-4 mr-3" />
                       Account
                     </Link>
-                    <Link
+                    {/* <Link
                       href="/dashboard/settings"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowProfileMenu(false)}
                     >
                       <Settings className="h-4 w-4 mr-3" />
                       Settings
-                    </Link>
+                    </Link> */}
                     <button
                       onClick={handleSignOut}
                       className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

@@ -36,6 +36,32 @@ export default function LocationDetailPage() {
   const [newImageFiles, setNewImageFiles] = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
 
+  const deleteImageFromStorage = async (imageUrl: string) => {
+    try {
+      const urlParts = imageUrl.split('/images/')
+      if (urlParts.length !== 2) {
+        console.error('Invalid image URL format:', imageUrl)
+        return
+      }
+      
+      const filePath = urlParts[1]
+      
+      console.log('Deleting from storage:', filePath)
+      
+      const { error } = await supabase.storage
+        .from('images')
+        .remove([filePath])
+      
+      if (error) {
+        console.error('Error deleting from storage:', error)
+      } else {
+        console.log('Successfully deleted from storage:', filePath)
+      }
+    } catch (err) {
+      console.error('Exception deleting from storage:', err)
+    }
+  }
+
   useEffect(() => {
     async function loadLocation() {
       const { data, error } = await supabase
@@ -52,7 +78,6 @@ export default function LocationDetailPage() {
 
       console.log('Location data:', data)
       console.log('Images from DB:', data.images)
-      console.log('Images type:', typeof data.images)
 
       setFormData({
         name: data.name,
@@ -65,7 +90,6 @@ export default function LocationDetailPage() {
       })
       
       setExistingImages(data.images || [])
-      console.log('existingImages state:', data.images || [])
       setLoading(false)
     }
 
@@ -226,6 +250,25 @@ export default function LocationDetailPage() {
       }
     }
 
+    const { data: originalLocation } = await supabase
+      .from('locations')
+      .select('images')
+      .eq('id', locationId)
+      .single()
+
+    const originalImages = originalLocation?.images || []
+    
+    const removedImages = originalImages.filter(
+      (url: string) => !existingImages.includes(url)
+    )
+    
+    if (removedImages.length > 0) {
+      console.log('Deleting removed images from storage:', removedImages)
+      await Promise.all(
+        removedImages.map((url: string) => deleteImageFromStorage(url))
+      )
+    }
+
     let finalImages = [...existingImages]
 
     if (newImageFiles.length > 0) {
@@ -288,6 +331,13 @@ export default function LocationDetailPage() {
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
       return
+    }
+
+    if (existingImages.length > 0) {
+      console.log('Deleting all images from storage')
+      await Promise.all(
+        existingImages.map(url => deleteImageFromStorage(url))
+      )
     }
 
     const { error: deleteError } = await supabase

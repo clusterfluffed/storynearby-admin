@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Save, Trash2, Edit2, Upload, X } from 'lucide-react'
+import { geocodeAddress } from '@/lib/geocoding'
+import { MapPin, Save, Trash2, Edit2, Upload, X, Search } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -17,6 +18,7 @@ export default function LocationDetailPage() {
   const [error, setError] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -62,6 +64,30 @@ export default function LocationDetailPage() {
 
     loadLocation()
   }, [locationId])
+
+  const handleGeocodeAddress = async () => {
+    if (!formData.address) {
+      alert('Please enter an address first')
+      return
+    }
+
+    setGeocoding(true)
+    setError('')
+    
+    const coords = await geocodeAddress(formData.address)
+    
+    if (coords) {
+      setFormData({
+        ...formData,
+        lat: coords.lat.toString(),
+        lng: coords.lng.toString()
+      })
+      setGeocoding(false)
+    } else {
+      setError('Could not find coordinates for this address. Please enter them manually.')
+      setGeocoding(false)
+    }
+  }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -124,6 +150,24 @@ export default function LocationDetailPage() {
     e.preventDefault()
     setSaving(true)
     setError('')
+
+    if (!formData.lat || !formData.lng) {
+      if (formData.address) {
+        const coords = await geocodeAddress(formData.address)
+        if (coords) {
+          formData.lat = coords.lat.toString()
+          formData.lng = coords.lng.toString()
+        } else {
+          setError('Could not find coordinates for this address. Please enter coordinates manually or use a different address.')
+          setSaving(false)
+          return
+        }
+      } else {
+        setError('Please provide either an address or coordinates')
+        setSaving(false)
+        return
+      }
+    }
 
     let finalImages = [...existingImages]
 
@@ -224,6 +268,7 @@ export default function LocationDetailPage() {
   }
 
   const hasValidCoordinates = () => {
+    if (!formData.lat || !formData.lng) return false
     const lat = parseFloat(formData.lat)
     const lng = parseFloat(formData.lng)
     return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
@@ -307,18 +352,42 @@ export default function LocationDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                  <div className="flex space-x-2">
+                    <input 
+                      type="text"
+                      required
+                      value={formData.address} 
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="123 Main St, City, State, ZIP"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGeocodeAddress}
+                      disabled={geocoding || !formData.address}
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <Search className="h-4 w-4 mr-2" />
+                      {geocoding ? 'Finding...' : 'Find on Map'}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Latitude *</label>
-                    <input type="number" step="any" required value={formData.lat} onChange={(e) => setFormData({ ...formData, lat: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Coordinates (Optional)</label>
+                    <span className="text-xs text-gray-500">Auto-filled from address</span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Longitude *</label>
-                    <input type="number" step="any" required value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                      <input type="number" step="any" value={formData.lat} onChange={(e) => setFormData({ ...formData, lat: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                      <input type="number" step="any" value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
                   </div>
                 </div>
 
@@ -415,16 +484,18 @@ export default function LocationDetailPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">Latitude</h3>
-                    <p className="text-gray-900">{formData.lat}</p>
+                {hasValidCoordinates() && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-1">Latitude</h3>
+                      <p className="text-gray-900">{formData.lat}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-1">Longitude</h3>
+                      <p className="text-gray-900">{formData.lng}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">Longitude</h3>
-                    <p className="text-gray-900">{formData.lng}</p>
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
@@ -456,7 +527,7 @@ export default function LocationDetailPage() {
                 </div>
                 {editMode && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> Update the coordinates to see the marker move in real-time.</p>
+                    <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> Change the address and click "Find on Map" to update coordinates.</p>
                   </div>
                 )}
               </div>
@@ -464,8 +535,8 @@ export default function LocationDetailPage() {
               <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="text-center">
                   <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                  <p className="text-gray-600 text-sm">Invalid coordinates</p>
-                  <p className="text-gray-500 text-xs mt-1">Edit the location to update coordinates</p>
+                  <p className="text-gray-600 text-sm">No coordinates available</p>
+                  <p className="text-gray-500 text-xs mt-1">Edit location to add address or coordinates</p>
                 </div>
               </div>
             )}

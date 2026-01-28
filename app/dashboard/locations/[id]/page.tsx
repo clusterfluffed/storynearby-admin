@@ -289,23 +289,28 @@ export default function LocationDetailPage() {
                 </button>
               </div>
             </div>
+
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
             )}
+
             {editMode ? (
               <form onSubmit={handleUpdate} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                   <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea rows={4} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                   <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Latitude *</label>
@@ -318,9 +323,7 @@ export default function LocationDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Images ({totalImages}/5)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Images ({totalImages}/5)</label>
                   
                   {(existingImages.length > 0 || newImagePreviews.length > 0) && (
                     <div className="grid grid-cols-3 gap-3 mb-3">
@@ -348,9 +351,7 @@ export default function LocationDetailPage() {
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
-                        </p>
+                        <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                         <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
                       </div>
                       <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageSelect} />
@@ -374,9 +375,7 @@ export default function LocationDetailPage() {
                     <Save className="h-5 w-5 mr-2" />
                     {uploadingImages ? 'Uploading...' : saving ? 'Saving...' : 'Save Changes'}
                   </button>
-                  <button type="button" onClick={handleCancelEdit} className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
-                    Cancel
-                  </button>
+                  <button type="button" onClick={handleCancelEdit} className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                 </div>
               </form>
             ) : (
@@ -385,45 +384,37 @@ export default function LocationDetailPage() {
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Name</h3>
                   <p className="text-lg text-gray-900">{formData.name}</p>
                 </div>
+
                 {formData.description && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-1">Description</h3>
                     <p className="text-gray-900 whitespace-pre-wrap">{formData.description}</p>
                   </div>
                 )}
+
                 {formData.address && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-1">Address</h3>
                     <p className="text-gray-900">{formData.address}</p>
                   </div>
                 )}
+
                 {existingImages.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-2">Images ({existingImages.length})</h3>
                     <div className="grid grid-cols-2 gap-3">
                       {existingImages.map((url, index) => (
-                        
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative block"
-                        >
-                          <img 
-                            src={url} 
-                            alt={`Location image ${index + 1}`} 
-                            className="w-full h-32 object-cover rounded-lg border border-gray-300 group-hover:border-blue-500 transition-all cursor-pointer" 
-                          />
+                        <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="group relative block">
+                          <img src={url} alt={`Location image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-300 group-hover:border-blue-500 transition-all cursor-pointer" />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center">
-                            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium px-2 py-1 bg-blue-600 rounded">
-                              View full size
-                            </span>
+                            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium px-2 py-1 bg-blue-600 rounded">View full size</span>
                           </div>
                         </a>
                       ))}
                     </div>
                   </div>
                 )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-1">Latitude</h3>
@@ -434,17 +425,16 @@ export default function LocationDetailPage() {
                     <p className="text-gray-900">{formData.lng}</p>
                   </div>
                 </div>
-                <div className="flex space-x-6">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
-                    <div className="flex space-x-2">
-                      {formData.featured && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Featured</span>
-                      )}
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {formData.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
+                  <div className="flex space-x-2">
+                    {formData.featured && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Featured</span>
+                    )}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {formData.active ? 'Active' : 'Inactive'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -462,9 +452,7 @@ export default function LocationDetailPage() {
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Coordinates</h3>
                   <p className="text-sm text-gray-900">Latitude: {parseFloat(formData.lat).toFixed(6)}</p>
                   <p className="text-sm text-gray-900">Longitude: {parseFloat(formData.lng).toFixed(6)}</p>
-                  <a href={getMapLink() || '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800">
-                    Open in OpenStreetMap →
-                  </a>
+                  <a href={getMapLink() || '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800">Open in OpenStreetMap →</a>
                 </div>
                 {editMode && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

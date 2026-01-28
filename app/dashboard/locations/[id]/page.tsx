@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Save, Trash2, Edit2, Upload, X } from 'lucide-react'
+import { MapPin, Save, Trash2, Edit2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -16,7 +16,6 @@ export default function LocationDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [editMode, setEditMode] = useState(false)
-  const [uploadingImages, setUploadingImages] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -27,10 +26,6 @@ export default function LocationDetailPage() {
     featured: false,
     active: true,
   })
-
-  const [existingImages, setExistingImages] = useState<string[]>([])
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([])
-  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
 
   useEffect(() => {
     async function loadLocation() {
@@ -55,84 +50,16 @@ export default function LocationDetailPage() {
         featured: data.featured,
         active: data.active,
       })
-      
-      setExistingImages(data.images || [])
       setLoading(false)
     }
 
     loadLocation()
   }, [locationId])
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    
-    const totalImages = existingImages.length + newImageFiles.length
-    const remainingSlots = 5 - totalImages
-    const filesToAdd = files.slice(0, remainingSlots)
-    
-    if (files.length > remainingSlots) {
-      alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
-    }
-
-    const newPreviews = filesToAdd.map(file => URL.createObjectURL(file))
-    
-    setNewImageFiles([...newImageFiles, ...filesToAdd])
-    setNewImagePreviews([...newImagePreviews, ...newPreviews])
-  }
-
-  const removeExistingImage = (index: number) => {
-    setExistingImages(existingImages.filter((_, i) => i !== index))
-  }
-
-  const removeNewImage = (index: number) => {
-    URL.revokeObjectURL(newImagePreviews[index])
-    setNewImageFiles(newImageFiles.filter((_, i) => i !== index))
-    setNewImagePreviews(newImagePreviews.filter((_, i) => i !== index))
-  }
-
-  const uploadNewImages = async () => {
-    const uploadedUrls: string[] = []
-
-    for (let i = 0; i < newImageFiles.length; i++) {
-      const file = newImageFiles[i]
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${locationId}/${Date.now()}-${i}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        continue
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(fileName)
-
-      uploadedUrls.push(publicUrl)
-    }
-
-    return uploadedUrls
-  }
-
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError('')
-
-    let finalImages = [...existingImages]
-
-    if (newImageFiles.length > 0) {
-      setUploadingImages(true)
-      const newUrls = await uploadNewImages()
-      finalImages = [...finalImages, ...newUrls]
-      setUploadingImages(false)
-    }
 
     const { error: updateError } = await supabase
       .from('locations')
@@ -144,7 +71,6 @@ export default function LocationDetailPage() {
         lng: parseFloat(formData.lng),
         featured: formData.featured,
         active: formData.active,
-        images: finalImages,
       })
       .eq('id', locationId)
 
@@ -156,8 +82,6 @@ export default function LocationDetailPage() {
 
     setEditMode(false)
     setSaving(false)
-    setNewImageFiles([])
-    setNewImagePreviews([])
     
     const { data } = await supabase
       .from('locations')
@@ -175,7 +99,6 @@ export default function LocationDetailPage() {
         featured: data.featured,
         active: data.active,
       })
-      setExistingImages(data.images || [])
     }
   }
 
@@ -199,9 +122,6 @@ export default function LocationDetailPage() {
 
   const handleCancelEdit = async () => {
     setEditMode(false)
-    setNewImageFiles([])
-    newImagePreviews.forEach(url => URL.revokeObjectURL(url))
-    setNewImagePreviews([])
     
     const { data } = await supabase
       .from('locations')
@@ -219,7 +139,6 @@ export default function LocationDetailPage() {
         featured: data.featured,
         active: data.active,
       })
-      setExistingImages(data.images || [])
     }
   }
 
@@ -257,8 +176,6 @@ export default function LocationDetailPage() {
       </div>
     )
   }
-
-  const totalImages = existingImages.length + newImageFiles.length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -316,48 +233,6 @@ export default function LocationDetailPage() {
                     <input type="number" step="any" required value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Images ({totalImages}/5)
-                  </label>
-                  
-                  {(existingImages.length > 0 || newImagePreviews.length > 0) && (
-                    <div className="grid grid-cols-3 gap-3 mb-3">
-                      {existingImages.map((url, index) => (
-                        <div key={`existing-${index}`} className="relative group">
-                          <img src={url} alt={`Image ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-gray-300" />
-                          <button type="button" onClick={() => removeExistingImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                      {newImagePreviews.map((preview, index) => (
-                        <div key={`new-${index}`} className="relative group">
-                          <img src={preview} alt={`New ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-blue-300" />
-                          <button type="button" onClick={() => removeNewImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="h-4 w-4" />
-                          </button>
-                          <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded">New</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {totalImages < 5 && (
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
-                        </p>
-                        <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
-                      </div>
-                      <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageSelect} />
-                    </label>
-                  )}
-                </div>
-
                 <div className="flex items-center space-x-6">
                   <label className="flex items-center">
                     <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
@@ -368,11 +243,10 @@ export default function LocationDetailPage() {
                     <span className="ml-2 text-sm text-gray-700">Active</span>
                   </label>
                 </div>
-
                 <div className="flex space-x-3 pt-4">
-                  <button type="submit" disabled={saving || uploadingImages} className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  <button type="submit" disabled={saving} className="flex-1 inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                     <Save className="h-5 w-5 mr-2" />
-                    {uploadingImages ? 'Uploading...' : saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button type="button" onClick={handleCancelEdit} className="inline-flex justify-center items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
                     Cancel
@@ -395,16 +269,6 @@ export default function LocationDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-1">Address</h3>
                     <p className="text-gray-900">{formData.address}</p>
-                  </div>
-                )}
-                {existingImages.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Images</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {existingImages.map((url, index) => (
-                        <img key={index} src={url} alt={`Location ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-300" />
-                      ))}
-                    </div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-4">
@@ -433,7 +297,6 @@ export default function LocationDetailPage() {
               </div>
             )}
           </div>
-
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Location Map</h2>
             {hasValidCoordinates() ? (

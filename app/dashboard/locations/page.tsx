@@ -15,6 +15,7 @@ export default function LocationsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [featuredFilter, setFeaturedFilter] = useState('all')
   const [tenantName, setTenantName] = useState('')
+  const [userRole, setUserRole] = useState('')
   const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   useEffect(() => {
@@ -27,12 +28,42 @@ export default function LocationsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('tenant_id, tenants(name)')
+        .select(`
+          tenant_id,
+          role,
+          tenants (
+            name
+          )
+        `)
         .eq('id', user.id)
         .single()
 
-      if (profile?.tenants) {
-        setTenantName((profile.tenants as any).name)
+      console.log('Profile data:', profile)
+
+      if (profile) {
+        setUserRole(profile.role || '')
+        
+        // Check if tenants data exists and extract name
+        if (profile.tenants && typeof profile.tenants === 'object') {
+          const name = (profile.tenants as any).name
+          console.log('Tenant name from join:', name)
+          setTenantName(name || '')
+        } else {
+          // Fallback: fetch tenant directly by ID
+          console.log('Fetching tenant by ID:', profile.tenant_id)
+          if (profile.tenant_id) {
+            const { data: tenant } = await supabase
+              .from('tenants')
+              .select('name')
+              .eq('id', profile.tenant_id)
+              .single()
+            
+            if (tenant) {
+              console.log('Tenant name from direct fetch:', tenant.name)
+              setTenantName(tenant.name || '')
+            }
+          }
+        }
       }
 
       const { data, error } = await supabase
@@ -132,9 +163,11 @@ export default function LocationsPage() {
                 <Link href="/dashboard/locations" className="px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600">
                   Locations
                 </Link>
-                <Link href="/dashboard/invites" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">
-                  Invites
-                </Link>
+                {userRole === 'super_admin' && (
+                  <Link href="/dashboard/invites" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+                    Invites
+                  </Link>
+                )}
               </nav>
             </div>
             
@@ -187,7 +220,7 @@ export default function LocationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tenantName && (
           <div className="mb-4">
-            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
+            <h2 className="text-xl text-gray-700">Welcome {tenantName}</h2>
           </div>
         )}
         

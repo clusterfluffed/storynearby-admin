@@ -8,6 +8,7 @@ import imageCompression from 'browser-image-compression'
 import { MapPin, Save, Trash2, Edit2, Upload, X, Search, GripVertical, Clock, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
+import DraggableMap from '@/app/components/DraggableMap'
 
 type DayHours = {
   open: string | null
@@ -328,19 +329,23 @@ export default function LocationDetailPage() {
     setSaving(true)
     setError('')
 
-    if (!formData.lat || !formData.lng) {
-      if (formData.address) {
-        const coords = await geocodeAddress(formData.address)
-        if (coords) {
-          formData.lat = coords.lat.toString()
-          formData.lng = coords.lng.toString()
-        } else {
-          setError('Could not find coordinates for this address. Please enter coordinates manually or use a different address.')
-          setSaving(false)
-          return
-        }
+    const hasAddress = formData.address.trim() !== ''
+    const hasCoordinates = formData.lat && formData.lng
+
+    if (!hasAddress && !hasCoordinates) {
+      setError('Please provide either an address OR coordinates (lat/lng)')
+      setSaving(false)
+      return
+    }
+
+    // If only address provided, try to geocode
+    if (hasAddress && !hasCoordinates) {
+      const coords = await geocodeAddress(formData.address)
+      if (coords) {
+        formData.lat = coords.lat.toFixed(6)
+        formData.lng = coords.lng.toFixed(6)
       } else {
-        setError('Please provide either an address or coordinates')
+        setError('Could not find coordinates for this address. Please enter coordinates manually.')
         setSaving(false)
         return
       }
@@ -378,7 +383,7 @@ export default function LocationDetailPage() {
     const updateData: any = {
       name: formData.name,
       description: formData.description,
-      address: formData.address,
+      address: formData.address || null,
       lat: parseFloat(formData.lat),
       lng: parseFloat(formData.lng),
       featured: formData.featured,
@@ -481,21 +486,6 @@ export default function LocationDetailPage() {
     return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
   }
 
-  const getMapUrl = () => {
-    if (!hasValidCoordinates()) return null
-    const lat = parseFloat(formData.lat)
-    const lng = parseFloat(formData.lng)
-    const bbox = `${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}`
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`
-  }
-
-  const getMapLink = () => {
-    if (!hasValidCoordinates()) return null
-    const lat = parseFloat(formData.lat)
-    const lng = parseFloat(formData.lng)
-    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`
-  }
-
   const formatTime = (time: string | null) => {
     if (!time) return 'Closed'
     const [hours, minutes] = time.split(':')
@@ -572,11 +562,10 @@ export default function LocationDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                   <div className="flex space-x-2">
                     <input 
                       type="text"
-                      required
                       value={formData.address} 
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
@@ -592,12 +581,13 @@ export default function LocationDetailPage() {
                       {geocoding ? 'Finding...' : 'Find on Map'}
                     </button>
                   </div>
+                  <p className="mt-1 text-xs text-gray-500">Provide address OR coordinates below (at least one required)</p>
                 </div>
 
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Coordinates (Optional)</label>
-                    <span className="text-xs text-gray-500">Auto-filled from address</span>
+                    <label className="block text-sm font-medium text-gray-700">Coordinates</label>
+                    <span className="text-xs text-gray-500">Required if no address provided</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -609,6 +599,9 @@ export default function LocationDetailPage() {
                       <input type="number" step="any" value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                   </div>
+                  <p className="mt-1 text-xs text-gray-600">
+                    💡 Tip: Enter coordinates manually, use "Find on Map" with an address, or drag the map marker
+                  </p>
                 </div>
 
                 <div>
@@ -840,18 +833,32 @@ export default function LocationDetailPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">Location Map</h2>
             {hasValidCoordinates() ? (
               <div className="space-y-4">
-                <div className="border rounded-lg overflow-hidden">
-                  <iframe width="100%" height="300" frameBorder="0" scrolling="no" src={getMapUrl() || ''}></iframe>
-                </div>
+                {editMode ? (
+                  <DraggableMap
+                    lat={parseFloat(formData.lat)}
+                    lng={parseFloat(formData.lng)}
+                    onLocationChange={(lat, lng) => {
+                      setFormData({
+                        ...formData,
+                        lat: lat.toFixed(6),
+                        lng: lng.toFixed(6)
+                      })
+                    }}
+                  />
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <iframe width="100%" height="300" frameBorder="0" scrolling="no" src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.lng) - 0.01},${parseFloat(formData.lat) - 0.01},${parseFloat(formData.lng) + 0.01},${parseFloat(formData.lat) + 0.01}&layer=mapnik&marker=${formData.lat},${formData.lng}`}></iframe>
+                  </div>
+                )}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Coordinates</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">{editMode ? 'Current Coordinates' : 'Coordinates'}</h3>
                   <p className="text-sm text-gray-900">Latitude: {parseFloat(formData.lat).toFixed(6)}</p>
                   <p className="text-sm text-gray-900">Longitude: {parseFloat(formData.lng).toFixed(6)}</p>
-                  <a href={getMapLink() || '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800">Open in OpenStreetMap →</a>
+                  <a href={`https://www.openstreetmap.org/?mlat=${formData.lat}&mlon=${formData.lng}#map=15/${formData.lat}/${formData.lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800">Open in OpenStreetMap →</a>
                 </div>
                 {editMode && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> Change the address and click "Find on Map" to update coordinates.</p>
+                    <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> Drag the marker or click the map to set the exact location. You can also enter an address and click "Find on Map" to auto-locate.</p>
                   </div>
                 )}
               </div>

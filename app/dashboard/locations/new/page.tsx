@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocoding'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, X, Upload, Search } from 'lucide-react'
+import { MapPin, Save, X, Upload, Search, GripVertical } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -16,6 +16,7 @@ export default function NewLocationPage() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
   const [compressing, setCompressing] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -87,6 +88,35 @@ export default function NewLocationPage() {
     }
   }
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newFiles = [...imageFiles]
+    const newPreviews = [...imagePreviews]
+    
+    const draggedFile = newFiles[draggedIndex]
+    const draggedPreview = newPreviews[draggedIndex]
+    
+    newFiles.splice(draggedIndex, 1)
+    newPreviews.splice(draggedIndex, 1)
+    
+    newFiles.splice(index, 0, draggedFile)
+    newPreviews.splice(index, 0, draggedPreview)
+
+    setImageFiles(newFiles)
+    setImagePreviews(newPreviews)
+    setDraggedIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
   const removeImage = (index: number) => {
     URL.revokeObjectURL(imagePreviews[index])
     setImageFiles(imageFiles.filter((_, i) => i !== index))
@@ -152,7 +182,7 @@ export default function NewLocationPage() {
       uploadedUrls.push(publicUrl)
     }
 
-    console.log('All uploaded URLs:', uploadedUrls)
+    console.log('All uploaded URLs (in order):', uploadedUrls)
     return uploadedUrls
   }
 
@@ -225,7 +255,7 @@ export default function NewLocationPage() {
       setUploadingImages(true)
       const imageUrls = await uploadImages(location.id)
       
-      console.log('Updating location with images:', imageUrls)
+      console.log('Updating location with images (in order):', imageUrls)
       
       const { error: updateError } = await supabase
         .from('locations')
@@ -374,23 +404,39 @@ export default function NewLocationPage() {
                 )}
 
                 {imagePreviews.length > 0 && (
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    {imagePreviews.map((preview, index) => (
-                      <div key={index} className="relative group">
-                        <img 
-                          src={preview} 
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">💡 Drag images to reorder them</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {imagePreviews.map((preview, index) => (
+                        <div 
+                          key={index}
+                          draggable
+                          onDragStart={() => handleDragStart(index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDragEnd={handleDragEnd}
+                          className={`relative group cursor-move ${draggedIndex === index ? 'opacity-50' : ''}`}
                         >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
+                          <div className="absolute top-1 left-1 p-1 bg-gray-800 bg-opacity-60 text-white rounded z-10">
+                            <GripVertical className="h-4 w-4" />
+                          </div>
+                          <span className="absolute top-1 left-8 px-2 py-0.5 bg-gray-800 bg-opacity-60 text-white text-xs rounded z-10">
+                            #{index + 1}
+                          </span>
+                          <img 
+                            src={preview} 
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -398,7 +444,7 @@ export default function NewLocationPage() {
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span></p>
+                      <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                       <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB, auto-compressed)</p>
                     </div>
                     <input 

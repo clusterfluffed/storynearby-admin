@@ -57,6 +57,19 @@ export default function LocationsPage() {
     router.push('/auth/signin')
   }
 
+  const handleTileClick = (locationId: string, e: React.MouseEvent) => {
+    // Don't navigate if clicking the edit button
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
+  const handleEditClick = (e: React.MouseEvent, locationId: string) => {
+    e.stopPropagation()
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
   const filteredLocations = locations?.filter(location => {
     const matchesSearch = !searchTerm || 
       location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,24 +97,20 @@ export default function LocationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminNav activeTab="locations" />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
-            {tenantName && (
-              <p className="mt-1 text-sm text-gray-600">Welcome {tenantName}</p>
-            )}
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link 
-              href="/dashboard/locations/new"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add Location
-            </Link>
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-8">
+              <h1 className="text-xl font-bold text-gray-900">StoryNearby Admin</h1>
+              <nav className="flex space-x-4">
+                <Link href="/dashboard/locations" className="px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600">
+                  Locations
+                </Link>
+                <Link href="/dashboard/invites" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+                  Invites
+                </Link>
+              </nav>
+            </div>
             
             <div className="relative">
               <button
@@ -112,34 +121,58 @@ export default function LocationsPage() {
               </button>
               
               {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">
-                  <Link
-                    href="/dashboard/account"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
                     onClick={() => setShowProfileMenu(false)}
-                  >
-                    <User className="h-4 w-4 mr-3" />
-                    Account
-                  </Link>
-                  {/* <Link
-                    href="/dashboard/settings"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowProfileMenu(false)}
-                  >
-                    <Settings className="h-4 w-4 mr-3" />
-                    Settings
-                  </Link> */}
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    <LogOut className="h-4 w-4 mr-3" />
-                    Sign Out
-                  </button>
-                </div>
+                  ></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-20">
+                    <Link
+                      href="/dashboard/account"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <User className="h-4 w-4 mr-3" />
+                      Account
+                    </Link>
+                    <Link
+                      href="/dashboard/settings"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <Settings className="h-4 w-4 mr-3" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      <LogOut className="h-4 w-4 mr-3" />
+                      Sign Out
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
+        </div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
+            {tenantName && (
+              <p className="mt-1 text-sm text-gray-600">Welcome to {tenantName}</p>
+            )}
+          </div>
+          <Link 
+            href="/dashboard/locations/new"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Location
+          </Link>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -236,9 +269,13 @@ export default function LocationsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredLocations.map((location) => (
-              <div key={location.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div 
+                key={location.id} 
+                onClick={(e) => handleTileClick(location.id, e)}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+              >
                 {location.images && location.images.length > 0 ? (
-                  <div className="h-48 bg-gray-200 overflow-hidden">
+                  <div className="relative h-48 bg-gray-200 overflow-hidden">
                     <img 
                       src={location.images[0]} 
                       alt={location.name}
@@ -281,20 +318,14 @@ export default function LocationsPage() {
                     <p className="text-sm text-gray-700 mb-4 line-clamp-2">{location.description}</p>
                   )}
 
-                  <div className="flex space-x-2">
-                    <Link
-                      href={`/dashboard/locations/${location.id}`}
+                  <div className="flex">
+                    <button
+                      onClick={(e) => handleEditClick(e, location.id)}
                       className="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                     >
                       <Edit2 className="h-4 w-4 mr-1" />
                       Edit
-                    </Link>
-                    <Link
-                      href={`/dashboard/locations/${location.id}`}
-                      className="inline-flex justify-center items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
-                    >
-                      View
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>

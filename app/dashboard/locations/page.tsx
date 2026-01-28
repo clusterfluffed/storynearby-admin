@@ -91,7 +91,7 @@ export default function LocationsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
             {tenantName && (
-              <p className="mt-1 text-sm text-gray-600">Welcome to {tenantName}</p>
+              <p className="mt-1 text-sm text-gray-600">Welcome {tenantName}</p>
             )}
           </div>
           <div className="flex items-center space-x-4">

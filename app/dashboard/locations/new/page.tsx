@@ -31,10 +31,19 @@ export default function NewLocationPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     
-    const remainingSlots = 5 - imageFiles.length
-    const filesToAdd = files.slice(0, remainingSlots)
+    const maxSize = 5 * 1024 * 1024
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        alert(`${file.name} is too large. Maximum file size is 5MB.`)
+        return false
+      }
+      return true
+    })
     
-    if (files.length > remainingSlots) {
+    const remainingSlots = 5 - imageFiles.length
+    const filesToAdd = validFiles.slice(0, remainingSlots)
+    
+    if (validFiles.length > remainingSlots) {
       alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
     }
 
@@ -75,12 +84,17 @@ export default function NewLocationPage() {
   }
 
   const uploadImages = async (locationId: string) => {
+    console.log('Starting upload, locationId:', locationId)
+    console.log('Number of files to upload:', imageFiles.length)
+    
     const uploadedUrls: string[] = []
 
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i]
       const fileExt = file.name.split('.').pop()
       const fileName = `${locationId}/${Date.now()}-${i}.${fileExt}`
+
+      console.log('Uploading file:', fileName)
 
       const { error: uploadError, data } = await supabase.storage
         .from('images')
@@ -94,13 +108,17 @@ export default function NewLocationPage() {
         continue
       }
 
+      console.log('Upload successful, data:', data)
+
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
 
+      console.log('Public URL:', publicUrl)
       uploadedUrls.push(publicUrl)
     }
 
+    console.log('All uploaded URLs:', uploadedUrls)
     return uploadedUrls
   }
 
@@ -109,7 +127,6 @@ export default function NewLocationPage() {
     setLoading(true)
     setError('')
 
-    // If no coordinates but has address, try to geocode
     if (!formData.lat || !formData.lng) {
       if (formData.address) {
         const coords = await geocodeAddress(formData.address)
@@ -168,14 +185,24 @@ export default function NewLocationPage() {
       return
     }
 
+    console.log('Location created with ID:', location.id)
+
     if (imageFiles.length > 0) {
       setUploadingImages(true)
       const imageUrls = await uploadImages(location.id)
       
-      await supabase
+      console.log('Updating location with images:', imageUrls)
+      
+      const { error: updateError } = await supabase
         .from('locations')
         .update({ images: imageUrls })
         .eq('id', location.id)
+      
+      if (updateError) {
+        console.error('Error updating images:', updateError)
+      } else {
+        console.log('Images successfully saved to database')
+      }
       
       setUploadingImages(false)
     }
@@ -273,9 +300,7 @@ export default function NewLocationPage() {
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Coordinates (Optional)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">Coordinates (Optional)</label>
                   <span className="text-xs text-gray-500">Auto-filled from address</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -305,9 +330,7 @@ export default function NewLocationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Images ({imageFiles.length}/5)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Images ({imageFiles.length}/5)</label>
                 
                 {imagePreviews.length > 0 && (
                   <div className="grid grid-cols-3 gap-3 mb-3">
@@ -334,15 +357,13 @@ export default function NewLocationPage() {
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600">
-                        <span className="font-semibold">Click to upload</span> or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                      <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                      <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB per file)</p>
                     </div>
                     <input 
                       type="file" 
                       className="hidden" 
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       multiple
                       onChange={handleImageSelect}
                     />
@@ -418,9 +439,7 @@ export default function NewLocationPage() {
                   </a>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    💡 <strong>Tip:</strong> The red marker shows where this location will appear on the mobile app map.
-                  </p>
+                  <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> The red marker shows where this location will appear on the mobile app map.</p>
                 </div>
               </div>
             ) : (

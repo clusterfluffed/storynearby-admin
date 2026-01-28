@@ -48,17 +48,22 @@ export default function LocationDetailPage() {
         return
       }
 
+      console.log('Location data:', data)
+      console.log('Images from DB:', data.images)
+      console.log('Images type:', typeof data.images)
+
       setFormData({
         name: data.name,
         description: data.description || '',
         address: data.address || '',
-        lat: data.lat.toString(),
-        lng: data.lng.toString(),
+        lat: data.lat?.toString() || '',
+        lng: data.lng?.toString() || '',
         featured: data.featured,
         active: data.active,
       })
       
       setExistingImages(data.images || [])
+      console.log('existingImages state:', data.images || [])
       setLoading(false)
     }
 
@@ -92,11 +97,20 @@ export default function LocationDetailPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     
+    const maxSize = 5 * 1024 * 1024
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        alert(`${file.name} is too large. Maximum file size is 5MB.`)
+        return false
+      }
+      return true
+    })
+    
     const totalImages = existingImages.length + newImageFiles.length
     const remainingSlots = 5 - totalImages
-    const filesToAdd = files.slice(0, remainingSlots)
+    const filesToAdd = validFiles.slice(0, remainingSlots)
     
-    if (files.length > remainingSlots) {
+    if (validFiles.length > remainingSlots) {
       alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
     }
 
@@ -117,6 +131,9 @@ export default function LocationDetailPage() {
   }
 
   const uploadNewImages = async () => {
+    console.log('Starting upload for edit, locationId:', locationId)
+    console.log('Number of new files to upload:', newImageFiles.length)
+    
     const uploadedUrls: string[] = []
 
     for (let i = 0; i < newImageFiles.length; i++) {
@@ -124,7 +141,9 @@ export default function LocationDetailPage() {
       const fileExt = file.name.split('.').pop()
       const fileName = `${locationId}/${Date.now()}-${i}.${fileExt}`
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading file:', fileName)
+
+      const { error: uploadError, data } = await supabase.storage
         .from('images')
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -136,13 +155,17 @@ export default function LocationDetailPage() {
         continue
       }
 
+      console.log('Upload successful, data:', data)
+
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
 
+      console.log('Public URL:', publicUrl)
       uploadedUrls.push(publicUrl)
     }
 
+    console.log('All newly uploaded URLs:', uploadedUrls)
     return uploadedUrls
   }
 
@@ -178,6 +201,8 @@ export default function LocationDetailPage() {
       setUploadingImages(false)
     }
 
+    console.log('Updating location with final images:', finalImages)
+
     const { error: updateError } = await supabase
       .from('locations')
       .update({
@@ -193,10 +218,13 @@ export default function LocationDetailPage() {
       .eq('id', locationId)
 
     if (updateError) {
+      console.error('Error updating location:', updateError)
       setError(updateError.message)
       setSaving(false)
       return
     }
+
+    console.log('Location updated successfully')
 
     setEditMode(false)
     setSaving(false)
@@ -214,8 +242,8 @@ export default function LocationDetailPage() {
         name: data.name,
         description: data.description || '',
         address: data.address || '',
-        lat: data.lat.toString(),
-        lng: data.lng.toString(),
+        lat: data.lat?.toString() || '',
+        lng: data.lng?.toString() || '',
         featured: data.featured,
         active: data.active,
       })
@@ -258,8 +286,8 @@ export default function LocationDetailPage() {
         name: data.name,
         description: data.description || '',
         address: data.address || '',
-        lat: data.lat.toString(),
-        lng: data.lng.toString(),
+        lat: data.lat?.toString() || '',
+        lng: data.lng?.toString() || '',
         featured: data.featured,
         active: data.active,
       })
@@ -421,9 +449,9 @@ export default function LocationDetailPage() {
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB per file)</p>
                       </div>
-                      <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageSelect} />
+                      <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageSelect} />
                     </label>
                   )}
                 </div>

@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Save, X, Upload, Trash2, Image as ImageIcon } from 'lucide-react'
+import { geocodeAddress } from '@/lib/geocoding'
+import { MapPin, Save, X, Upload, Search } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -12,6 +13,7 @@ export default function NewLocationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,7 +31,6 @@ export default function NewLocationPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     
-    // Limit to 5 images total
     const remainingSlots = 5 - imageFiles.length
     const filesToAdd = files.slice(0, remainingSlots)
     
@@ -37,7 +38,6 @@ export default function NewLocationPage() {
       alert(`You can only upload ${remainingSlots} more image(s). Maximum 5 images total.`)
     }
 
-    // Create preview URLs
     const newPreviews = filesToAdd.map(file => URL.createObjectURL(file))
     
     setImageFiles([...imageFiles, ...filesToAdd])
@@ -45,11 +45,33 @@ export default function NewLocationPage() {
   }
 
   const removeImage = (index: number) => {
-    // Revoke preview URL to prevent memory leaks
     URL.revokeObjectURL(imagePreviews[index])
-    
     setImageFiles(imageFiles.filter((_, i) => i !== index))
     setImagePreviews(imagePreviews.filter((_, i) => i !== index))
+  }
+
+  const handleGeocodeAddress = async () => {
+    if (!formData.address) {
+      alert('Please enter an address first')
+      return
+    }
+
+    setGeocoding(true)
+    setError('')
+    
+    const coords = await geocodeAddress(formData.address)
+    
+    if (coords) {
+      setFormData({
+        ...formData,
+        lat: coords.lat.toString(),
+        lng: coords.lng.toString()
+      })
+      setGeocoding(false)
+    } else {
+      setError('Could not find coordinates for this address. Please enter them manually.')
+      setGeocoding(false)
+    }
   }
 
   const uploadImages = async (locationId: string) => {
@@ -72,7 +94,6 @@ export default function NewLocationPage() {
         continue
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
@@ -87,6 +108,25 @@ export default function NewLocationPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    // If no coordinates but has address, try to geocode
+    if (!formData.lat || !formData.lng) {
+      if (formData.address) {
+        const coords = await geocodeAddress(formData.address)
+        if (coords) {
+          formData.lat = coords.lat.toString()
+          formData.lng = coords.lng.toString()
+        } else {
+          setError('Could not find coordinates for this address. Please enter coordinates manually or use a different address.')
+          setLoading(false)
+          return
+        }
+      } else {
+        setError('Please provide either an address or coordinates')
+        setLoading(false)
+        return
+      }
+    }
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -107,7 +147,6 @@ export default function NewLocationPage() {
       return
     }
 
-    // Insert location first
     const { data: location, error: insertError } = await supabase
       .from('locations')
       .insert({
@@ -129,12 +168,10 @@ export default function NewLocationPage() {
       return
     }
 
-    // Upload images if any
     if (imageFiles.length > 0) {
       setUploadingImages(true)
       const imageUrls = await uploadImages(location.id)
       
-      // Update location with image URLs
       await supabase
         .from('locations')
         .update({ images: imageUrls })
@@ -147,6 +184,7 @@ export default function NewLocationPage() {
   }
 
   const hasValidCoordinates = () => {
+    if (!formData.lat || !formData.lng) return false
     const lat = parseFloat(formData.lat)
     const lng = parseFloat(formData.lng)
     return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
@@ -210,44 +248,62 @@ export default function NewLocationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <input 
-                  type="text" 
-                  value={formData.address} 
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                  placeholder="123 Main St" 
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                <div className="flex space-x-2">
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.address} 
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                    placeholder="123 Main St, City, State, ZIP" 
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGeocodeAddress}
+                    disabled={geocoding || !formData.address}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    {geocoding ? 'Finding...' : 'Find on Map'}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Enter full address for best results</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Latitude *</label>
-                  <input 
-                    type="number" 
-                    step="any" 
-                    required 
-                    value={formData.lat} 
-                    onChange={(e) => setFormData({ ...formData, lat: e.target.value })} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                    placeholder="40.0150" 
-                  />
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Coordinates (Optional)
+                  </label>
+                  <span className="text-xs text-gray-500">Auto-filled from address</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Longitude *</label>
-                  <input 
-                    type="number" 
-                    step="any" 
-                    required 
-                    value={formData.lng} 
-                    onChange={(e) => setFormData({ ...formData, lng: e.target.value })} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                    placeholder="-83.0133" 
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                    <input 
+                      type="number" 
+                      step="any" 
+                      value={formData.lat} 
+                      onChange={(e) => setFormData({ ...formData, lat: e.target.value })} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="40.0150" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                    <input 
+                      type="number" 
+                      step="any" 
+                      value={formData.lng} 
+                      onChange={(e) => setFormData({ ...formData, lng: e.target.value })} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="-83.0133" 
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Image Upload Section */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Images ({imageFiles.length}/5)
@@ -335,7 +391,6 @@ export default function NewLocationPage() {
             </form>
           </div>
 
-          {/* Map Preview Section */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Location Preview</h2>
             {hasValidCoordinates() ? (
@@ -372,8 +427,8 @@ export default function NewLocationPage() {
               <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="text-center">
                   <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                  <p className="text-gray-600 text-sm">Enter valid latitude and longitude coordinates</p>
-                  <p className="text-gray-500 text-xs mt-1">The map preview will appear here</p>
+                  <p className="text-gray-600 text-sm">Enter an address and click "Find on Map"</p>
+                  <p className="text-gray-500 text-xs mt-1">Or enter coordinates manually</p>
                 </div>
               </div>
             )}

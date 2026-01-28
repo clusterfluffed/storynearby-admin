@@ -399,10 +399,27 @@ export default function LocationDetailPage() {
                 )}
                 {existingImages.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Images</h3>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Images ({existingImages.length})</h3>
                     <div className="grid grid-cols-2 gap-3">
                       {existingImages.map((url, index) => (
-                        <img key={index} src={url} alt={`Location ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-300" />
+                        
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative block"
+                        >
+                          <img 
+                            src={url} 
+                            alt={`Location image ${index + 1}`} 
+                            className="w-full h-32 object-cover rounded-lg border border-gray-300 group-hover:border-blue-500 transition-all cursor-pointer" 
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center">
+                            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium px-2 py-1 bg-blue-600 rounded">
+                              View full size
+                            </span>
+                          </div>
+                        </a>
                       ))}
                     </div>
                   </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Edit2, Plus, Search, User, LogOut, Settings, UserCircle } from 'lucide-react'
+import { MapPin, Edit2, Plus, Search, User, LogOut, Settings, UserCircle, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
@@ -57,8 +57,34 @@ export default function LocationsPage() {
     router.push('/auth/signin')
   }
 
+  const handleDelete = async (e: React.MouseEvent, locationId: string, locationName: string) => {
+    e.stopPropagation()
+    
+    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId)
+
+      if (error) {
+        alert('Error deleting location: ' + error.message)
+        return
+      }
+
+      // Refresh the locations list
+      setLocations(locations.filter(loc => loc.id !== locationId))
+    } catch (err) {
+      alert('Failed to delete location')
+      console.error(err)
+    }
+  }
+
   const handleTileClick = (locationId: string, e: React.MouseEvent) => {
-    // Don't navigate if clicking the edit button
+    // Don't navigate if clicking the edit button or delete button
     if ((e.target as HTMLElement).closest('button')) {
       return
     }
@@ -159,12 +185,15 @@ export default function LocationsPage() {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {tenantName && (
+          <div className="mb-4">
+            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
+          </div>
+        )}
+        
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
-            {tenantName && (
-              <p className="mt-1 text-sm text-gray-600">Welcome to {tenantName}</p>
-            )}
           </div>
           <Link 
             href="/dashboard/locations/new"
@@ -323,13 +352,19 @@ export default function LocationsPage() {
                     <p className="text-sm text-gray-700 mb-4 line-clamp-2">{location.description}</p>
                   )}
 
-                  <div className="flex">
+                  <div className="flex space-x-2">
                     <button
                       onClick={(e) => handleEditClick(e, location.id)}
                       className="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                     >
                       <Edit2 className="h-4 w-4 mr-1" />
                       Edit
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, location.id, location.name)}
+                      className="inline-flex justify-center items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

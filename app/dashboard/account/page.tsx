@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { User, Mail, Building2, Calendar, Save } from 'lucide-react'
+import { User, Mail, Calendar, Save } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
@@ -18,8 +18,6 @@ export default function AccountPage() {
     email: '',
     firstName: '',
     lastName: '',
-    tenantName: '',
-    role: '',
     createdAt: ''
   })
 
@@ -33,7 +31,7 @@ export default function AccountPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('*, tenants(name)')
+        .select('first_name, last_name')
         .eq('id', user.id)
         .single()
 
@@ -42,8 +40,6 @@ export default function AccountPage() {
           email: user.email || '',
           firstName: profile.first_name || '',
           lastName: profile.last_name || '',
-          tenantName: (profile.tenants as any)?.name || '',
-          role: profile.role || '',
           createdAt: new Date(user.created_at).toLocaleDateString()
         })
       }
@@ -169,31 +165,6 @@ export default function AccountPage() {
                     placeholder="Doe"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <Building2 className="h-4 w-4 mr-2 text-gray-500" />
-                  Organization
-                </label>
-                <input
-                  type="text"
-                  value={accountData.tenantName}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <input
-                  type="text"
-                  value={accountData.role}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed capitalize"
-                />
               </div>
 
               <div>

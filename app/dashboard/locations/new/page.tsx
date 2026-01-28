@@ -8,6 +8,7 @@ import imageCompression from 'browser-image-compression'
 import { MapPin, Save, X, Upload, Search, GripVertical, Clock, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
+import DraggableMap from '@/app/components/DraggableMap'
 
 type DayHours = {
   open: string | null
@@ -57,7 +58,6 @@ export default function NewLocationPage() {
   })
 
   const [museumHours, setMuseumHours] = useState<MuseumHours>(defaultHours)
-
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
 
@@ -85,9 +85,6 @@ export default function NewLocationPage() {
 
   const handleMuseumToggle = (checked: boolean) => {
     setFormData({ ...formData, is_museum: checked })
-    if (checked && !museumHours) {
-      setMuseumHours(defaultHours)
-    }
   }
 
   const handleHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
@@ -145,9 +142,7 @@ export default function NewLocationPage() {
       )
       
       setCompressing(false)
-      
       const newPreviews = compressedFiles.map(file => URL.createObjectURL(file))
-      
       setImageFiles([...imageFiles, ...compressedFiles])
       setImagePreviews([...imagePreviews, ...newPreviews])
     } catch (err) {
@@ -173,7 +168,6 @@ export default function NewLocationPage() {
     
     newFiles.splice(draggedIndex, 1)
     newPreviews.splice(draggedIndex, 1)
-    
     newFiles.splice(index, 0, draggedFile)
     newPreviews.splice(index, 0, draggedPreview)
 
@@ -206,8 +200,8 @@ export default function NewLocationPage() {
     if (coords) {
       setFormData({
         ...formData,
-        lat: coords.lat.toString(),
-        lng: coords.lng.toString()
+        lat: coords.lat.toFixed(6),
+        lng: coords.lng.toFixed(6)
       })
       setGeocoding(false)
     } else {
@@ -217,17 +211,12 @@ export default function NewLocationPage() {
   }
 
   const uploadImages = async (locationId: string) => {
-    console.log('Starting upload, locationId:', locationId)
-    console.log('Number of files to upload:', imageFiles.length)
-    
     const uploadedUrls: string[] = []
 
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i]
       const fileExt = file.name.split('.').pop()
       const fileName = `${locationId}/${Date.now()}-${i}.${fileExt}`
-
-      console.log('Uploading file:', fileName)
 
       const { error: uploadError, data } = await supabase.storage
         .from('images')
@@ -241,17 +230,13 @@ export default function NewLocationPage() {
         continue
       }
 
-      console.log('Upload successful, data:', data)
-
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(fileName)
 
-      console.log('Public URL:', publicUrl)
       uploadedUrls.push(publicUrl)
     }
 
-    console.log('All uploaded URLs (in order):', uploadedUrls)
     return uploadedUrls
   }
 
@@ -260,19 +245,23 @@ export default function NewLocationPage() {
     setLoading(true)
     setError('')
 
-    if (!formData.lat || !formData.lng) {
-      if (formData.address) {
-        const coords = await geocodeAddress(formData.address)
-        if (coords) {
-          formData.lat = coords.lat.toString()
-          formData.lng = coords.lng.toString()
-        } else {
-          setError('Could not find coordinates for this address. Please enter coordinates manually or use a different address.')
-          setLoading(false)
-          return
-        }
+    const hasAddress = formData.address.trim() !== ''
+    const hasCoordinates = formData.lat && formData.lng
+
+    if (!hasAddress && !hasCoordinates) {
+      setError('Please provide either an address OR coordinates (lat/lng)')
+      setLoading(false)
+      return
+    }
+
+    // If only address provided, try to geocode
+    if (hasAddress && !hasCoordinates) {
+      const coords = await geocodeAddress(formData.address)
+      if (coords) {
+        formData.lat = coords.lat.toFixed(6)
+        formData.lng = coords.lng.toFixed(6)
       } else {
-        setError('Please provide either an address or coordinates')
+        setError('Could not find coordinates for this address. Please enter coordinates manually.')
         setLoading(false)
         return
       }
@@ -300,7 +289,7 @@ export default function NewLocationPage() {
     const insertData: any = {
       name: formData.name,
       description: formData.description,
-      address: formData.address,
+      address: formData.address || null,
       lat: parseFloat(formData.lat),
       lng: parseFloat(formData.lng),
       featured: formData.featured,
@@ -325,24 +314,14 @@ export default function NewLocationPage() {
       return
     }
 
-    console.log('Location created with ID:', location.id)
-
     if (imageFiles.length > 0) {
       setUploadingImages(true)
       const imageUrls = await uploadImages(location.id)
       
-      console.log('Updating location with images (in order):', imageUrls)
-      
-      const { error: updateError } = await supabase
+      await supabase
         .from('locations')
         .update({ images: imageUrls })
         .eq('id', location.id)
-      
-      if (updateError) {
-        console.error('Error updating images:', updateError)
-      } else {
-        console.log('Images successfully saved to database')
-      }
       
       setUploadingImages(false)
     }
@@ -355,21 +334,6 @@ export default function NewLocationPage() {
     const lat = parseFloat(formData.lat)
     const lng = parseFloat(formData.lng)
     return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
-  }
-
-  const getMapUrl = () => {
-    if (!hasValidCoordinates()) return null
-    const lat = parseFloat(formData.lat)
-    const lng = parseFloat(formData.lng)
-    const bbox = `${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}`
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`
-  }
-
-  const getMapLink = () => {
-    if (!hasValidCoordinates()) return null
-    const lat = parseFloat(formData.lat)
-    const lng = parseFloat(formData.lng)
-    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`
   }
 
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
@@ -420,11 +384,10 @@ export default function NewLocationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <div className="flex space-x-2">
                   <input 
                     type="text" 
-                    required
                     value={formData.address} 
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
@@ -440,13 +403,13 @@ export default function NewLocationPage() {
                     {geocoding ? 'Finding...' : 'Find on Map'}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Enter full address for best results</p>
+                <p className="mt-1 text-xs text-gray-500">Provide address OR coordinates below (at least one required)</p>
               </div>
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Coordinates (Optional)</label>
-                  <span className="text-xs text-gray-500">Auto-filled from address</span>
+                  <label className="block text-sm font-medium text-gray-700">Coordinates</label>
+                  <span className="text-xs text-gray-500">Required if no address provided</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -472,6 +435,9 @@ export default function NewLocationPage() {
                     />
                   </div>
                 </div>
+                <p className="mt-1 text-xs text-gray-600">
+                  💡 Tip: Enter coordinates manually, use "Find on Map" with an address, or drag the map marker
+                </p>
               </div>
 
               <div>
@@ -635,21 +601,23 @@ export default function NewLocationPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">Location Preview</h2>
             {hasValidCoordinates() ? (
               <div className="space-y-4">
-                <div className="border rounded-lg overflow-hidden">
-                  <iframe 
-                    width="100%" 
-                    height="300" 
-                    frameBorder="0" 
-                    scrolling="no" 
-                    src={getMapUrl() || ''}
-                  ></iframe>
-                </div>
+                <DraggableMap
+                  lat={parseFloat(formData.lat)}
+                  lng={parseFloat(formData.lng)}
+                  onLocationChange={(lat, lng) => {
+                    setFormData({
+                      ...formData,
+                      lat: lat.toFixed(6),
+                      lng: lng.toFixed(6)
+                    })
+                  }}
+                />
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Coordinates</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Current Coordinates</h3>
                   <p className="text-sm text-gray-900">Latitude: {parseFloat(formData.lat).toFixed(6)}</p>
                   <p className="text-sm text-gray-900">Longitude: {parseFloat(formData.lng).toFixed(6)}</p>
                   <a 
-                    href={getMapLink() || '#'} 
+                    href={`https://www.openstreetmap.org/?mlat=${formData.lat}&mlon=${formData.lng}#map=15/${formData.lat}/${formData.lng}`}
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="inline-flex items-center mt-3 text-sm text-blue-600 hover:text-blue-800"
@@ -658,7 +626,7 @@ export default function NewLocationPage() {
                   </a>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> The red marker shows where this location will appear on the mobile app map.</p>
+                  <p className="text-sm text-blue-800">💡 <strong>Tip:</strong> Drag the marker or click the map to set the exact location. You can also enter an address and click "Find on Map" to auto-locate.</p>
                 </div>
               </div>
             ) : (
@@ -666,7 +634,7 @@ export default function NewLocationPage() {
                 <div className="text-center">
                   <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-3" />
                   <p className="text-gray-600 text-sm">Enter an address and click "Find on Map"</p>
-                  <p className="text-gray-500 text-xs mt-1">Or enter coordinates manually</p>
+                  <p className="text-gray-500 text-xs mt-1">Or enter coordinates manually to see the map</p>
                 </div>
               </div>
             )}

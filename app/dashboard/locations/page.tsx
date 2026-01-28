@@ -296,7 +296,12 @@ export default function LocationsPage() {
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-900 flex-1">{location.name}</h3>
-                    <div className="flex space-x-1 ml-2">
+                    <div className="flex flex-wrap gap-1 ml-2">
+                      {location.is_museum && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          Museum
+                        </span>
+                      )}
                       {location.featured && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                           Featured

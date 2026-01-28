@@ -531,7 +531,7 @@ export default function LocationDetailPage() {
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                        <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span></p>
                         <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB, auto-compressed)</p>
                       </div>
                       <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageSelect} disabled={compressing} />

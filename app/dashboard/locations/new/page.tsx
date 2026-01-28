@@ -1,13 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocoding'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, X, Upload, Search, GripVertical } from 'lucide-react'
+import { MapPin, Save, X, Upload, Search, GripVertical, Clock, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
+
+type DayHours = {
+  open: string | null
+  close: string | null
+  closed: boolean
+}
+
+type MuseumHours = {
+  monday: DayHours
+  tuesday: DayHours
+  wednesday: DayHours
+  thursday: DayHours
+  friday: DayHours
+  saturday: DayHours
+  sunday: DayHours
+}
+
+const defaultHours: MuseumHours = {
+  monday: { open: '09:00', close: '17:00', closed: false },
+  tuesday: { open: '09:00', close: '17:00', closed: false },
+  wednesday: { open: '09:00', close: '17:00', closed: false },
+  thursday: { open: '09:00', close: '17:00', closed: false },
+  friday: { open: '09:00', close: '17:00', closed: false },
+  saturday: { open: '10:00', close: '16:00', closed: false },
+  sunday: { open: null, close: null, closed: true }
+}
 
 export default function NewLocationPage() {
   const router = useRouter()
@@ -17,6 +43,7 @@ export default function NewLocationPage() {
   const [geocoding, setGeocoding] = useState(false)
   const [compressing, setCompressing] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [tenantName, setTenantName] = useState('')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -26,10 +53,52 @@ export default function NewLocationPage() {
     lng: '',
     featured: false,
     active: true,
+    is_museum: false,
   })
+
+  const [museumHours, setMuseumHours] = useState<MuseumHours>(defaultHours)
 
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
+  useEffect(() => {
+    async function loadTenant() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/auth/signin')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, tenants(name)')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.tenants) {
+        setTenantName((profile.tenants as any).name)
+      }
+    }
+
+    loadTenant()
+  }, [router])
+
+  const handleMuseumToggle = (checked: boolean) => {
+    setFormData({ ...formData, is_museum: checked })
+    if (checked && !museumHours) {
+      setMuseumHours(defaultHours)
+    }
+  }
+
+  const handleHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
+    setMuseumHours({
+      ...museumHours,
+      [day]: {
+        ...museumHours[day],
+        [field]: value
+      }
+    })
+  }
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -228,18 +297,25 @@ export default function NewLocationPage() {
       return
     }
 
+    const insertData: any = {
+      name: formData.name,
+      description: formData.description,
+      address: formData.address,
+      lat: parseFloat(formData.lat),
+      lng: parseFloat(formData.lng),
+      featured: formData.featured,
+      active: formData.active,
+      is_museum: formData.is_museum,
+      tenant_id: profile.tenant_id,
+    }
+
+    if (formData.is_museum) {
+      insertData.museum_hours = museumHours
+    }
+
     const { data: location, error: insertError } = await supabase
       .from('locations')
-      .insert({
-        name: formData.name,
-        description: formData.description,
-        address: formData.address,
-        lat: parseFloat(formData.lat),
-        lng: parseFloat(formData.lng),
-        featured: formData.featured,
-        active: formData.active,
-        tenant_id: profile.tenant_id,
-      })
+      .insert(insertData)
       .select()
       .single()
 
@@ -296,14 +372,19 @@ export default function NewLocationPage() {
     return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`
   }
 
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNav activeTab="locations" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <Link href="/dashboard/locations" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
             ← Back to Locations
           </Link>
+          {tenantName && (
+            <p className="text-sm text-gray-600">Welcome to {tenantName}</p>
+          )}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -444,7 +525,7 @@ export default function NewLocationPage() {
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span></p>
+                      <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                       <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB, auto-compressed)</p>
                     </div>
                     <input 
@@ -456,6 +537,56 @@ export default function NewLocationPage() {
                       disabled={compressing}
                     />
                   </label>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <label className="flex items-center mb-4">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.is_museum} 
+                    onChange={(e) => handleMuseumToggle(e.target.checked)} 
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                  />
+                  <Building2 className="h-4 w-4 ml-2 mr-1 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">This is a Museum Location</span>
+                </label>
+
+                {formData.is_museum && (
+                  <div className="ml-6 space-y-3 bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center mb-3">
+                      <Clock className="h-4 w-4 text-blue-600 mr-2" />
+                      <h3 className="text-sm font-medium text-gray-900">Museum Hours</h3>
+                    </div>
+                    {days.map((day) => (
+                      <div key={day} className="grid grid-cols-4 gap-2 items-center">
+                        <label className="text-sm font-medium text-gray-700 capitalize">{day}</label>
+                        <input
+                          type="time"
+                          value={museumHours[day].open || ''}
+                          onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
+                          disabled={museumHours[day].closed}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm disabled:bg-gray-100"
+                        />
+                        <input
+                          type="time"
+                          value={museumHours[day].close || ''}
+                          onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
+                          disabled={museumHours[day].closed}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm disabled:bg-gray-100"
+                        />
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={museumHours[day].closed}
+                            onChange={(e) => handleHoursChange(day, 'closed', e.target.checked)}
+                            className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-1"
+                          />
+                          <span className="text-xs text-gray-600">Closed</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 

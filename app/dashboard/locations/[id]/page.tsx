@@ -33,6 +33,7 @@ export default function LocationDetailPage() {
   })
 
   const [existingImages, setExistingImages] = useState<string[]>([])
+  const [originalImages, setOriginalImages] = useState<string[]>([])
   const [newImageFiles, setNewImageFiles] = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
 
@@ -89,7 +90,10 @@ export default function LocationDetailPage() {
         active: data.active,
       })
       
-      setExistingImages(data.images || [])
+      const loadedImages = data.images || []
+      setExistingImages(loadedImages)
+      setOriginalImages(loadedImages)
+      console.log('Set original images:', loadedImages)
       setLoading(false)
     }
 
@@ -179,6 +183,8 @@ export default function LocationDetailPage() {
   }
 
   const removeExistingImage = (index: number) => {
+    console.log('Removing image at index:', index)
+    console.log('Before remove, existingImages:', existingImages)
     setExistingImages(existingImages.filter((_, i) => i !== index))
   }
 
@@ -250,23 +256,22 @@ export default function LocationDetailPage() {
       }
     }
 
-    const { data: originalLocation } = await supabase
-      .from('locations')
-      .select('images')
-      .eq('id', locationId)
-      .single()
-
-    const originalImages = originalLocation?.images || []
+    console.log('Original images (from when page loaded):', originalImages)
+    console.log('Current existing images:', existingImages)
     
     const removedImages = originalImages.filter(
       (url: string) => !existingImages.includes(url)
     )
     
+    console.log('Images to delete from storage:', removedImages)
+    
     if (removedImages.length > 0) {
-      console.log('Deleting removed images from storage:', removedImages)
+      console.log('Deleting removed images from storage...')
       await Promise.all(
         removedImages.map((url: string) => deleteImageFromStorage(url))
       )
+    } else {
+      console.log('No images were removed, skipping deletion')
     }
 
     let finalImages = [...existingImages]
@@ -324,7 +329,10 @@ export default function LocationDetailPage() {
         featured: data.featured,
         active: data.active,
       })
-      setExistingImages(data.images || [])
+      const updatedImages = data.images || []
+      setExistingImages(updatedImages)
+      setOriginalImages(updatedImages)
+      console.log('Reset original images after save:', updatedImages)
     }
   }
 
@@ -353,30 +361,14 @@ export default function LocationDetailPage() {
     router.push('/dashboard/locations')
   }
 
-  const handleCancelEdit = async () => {
+  const handleCancelEdit = () => {
     setEditMode(false)
     setNewImageFiles([])
     newImagePreviews.forEach(url => URL.revokeObjectURL(url))
     setNewImagePreviews([])
     
-    const { data } = await supabase
-      .from('locations')
-      .select('*')
-      .eq('id', locationId)
-      .single()
-
-    if (data) {
-      setFormData({
-        name: data.name,
-        description: data.description || '',
-        address: data.address || '',
-        lat: data.lat?.toString() || '',
-        lng: data.lng?.toString() || '',
-        featured: data.featured,
-        active: data.active,
-      })
-      setExistingImages(data.images || [])
-    }
+    setExistingImages([...originalImages])
+    console.log('Cancel: restored original images:', originalImages)
   }
 
   const hasValidCoordinates = () => {

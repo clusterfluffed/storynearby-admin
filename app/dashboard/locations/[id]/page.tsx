@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { geocodeAddress } from '@/lib/geocoding'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Trash2, Edit2, Upload, X, Search } from 'lucide-react'
+import { MapPin, Save, Trash2, Edit2, Upload, X, Search, GripVertical } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -21,6 +21,7 @@ export default function LocationDetailPage() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
   const [compressing, setCompressing] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -182,6 +183,27 @@ export default function LocationDetailPage() {
     }
   }
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+
+    const newImages = [...existingImages]
+    const draggedItem = newImages[draggedIndex]
+    newImages.splice(draggedIndex, 1)
+    newImages.splice(index, 0, draggedItem)
+
+    setExistingImages(newImages)
+    setDraggedIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
   const removeExistingImage = (index: number) => {
     console.log('Removing image at index:', index)
     console.log('Before remove, existingImages:', existingImages)
@@ -283,7 +305,7 @@ export default function LocationDetailPage() {
       setUploadingImages(false)
     }
 
-    console.log('Updating location with final images:', finalImages)
+    console.log('Updating location with final images (in order):', finalImages)
 
     const { error: updateError } = await supabase
       .from('locations')
@@ -506,24 +528,40 @@ export default function LocationDetailPage() {
                   )}
 
                   {(existingImages.length > 0 || newImagePreviews.length > 0) && (
-                    <div className="grid grid-cols-3 gap-3 mb-3">
-                      {existingImages.map((url, index) => (
-                        <div key={`existing-${index}`} className="relative group">
-                          <img src={url} alt={`Image ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-gray-300" />
-                          <button type="button" onClick={() => removeExistingImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                      {newImagePreviews.map((preview, index) => (
-                        <div key={`new-${index}`} className="relative group">
-                          <img src={preview} alt={`New ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-blue-300" />
-                          <button type="button" onClick={() => removeNewImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="h-4 w-4" />
-                          </button>
-                          <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded">New</span>
-                        </div>
-                      ))}
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-2">💡 Drag images to reorder them</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {existingImages.map((url, index) => (
+                          <div 
+                            key={`existing-${index}`}
+                            draggable
+                            onDragStart={() => handleDragStart(index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDragEnd={handleDragEnd}
+                            className={`relative group cursor-move ${draggedIndex === index ? 'opacity-50' : ''}`}
+                          >
+                            <div className="absolute top-1 left-1 p-1 bg-gray-800 bg-opacity-60 text-white rounded z-10">
+                              <GripVertical className="h-4 w-4" />
+                            </div>
+                            <span className="absolute top-1 left-8 px-2 py-0.5 bg-gray-800 bg-opacity-60 text-white text-xs rounded z-10">
+                              #{index + 1}
+                            </span>
+                            <img src={url} alt={`Image ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-gray-300" />
+                            <button type="button" onClick={() => removeExistingImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {newImagePreviews.map((preview, index) => (
+                          <div key={`new-${index}`} className="relative group">
+                            <img src={preview} alt={`New ${index + 1}`} className="w-full h-24 object-cover rounded-lg border border-blue-300" />
+                            <button type="button" onClick={() => removeNewImage(index)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <X className="h-4 w-4" />
+                            </button>
+                            <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded">New</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -531,7 +569,7 @@ export default function LocationDetailPage() {
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span></p>
+                        <p className="text-sm text-gray-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                         <p className="text-xs text-gray-500">PNG, JPG, WebP (Max 5MB, auto-compressed)</p>
                       </div>
                       <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageSelect} disabled={compressing} />
@@ -585,6 +623,9 @@ export default function LocationDetailPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {existingImages.map((url, index) => (
                         <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="group relative block">
+                          <span className="absolute top-2 left-2 px-2 py-0.5 bg-black bg-opacity-60 text-white text-xs rounded z-10">
+                            #{index + 1}
+                          </span>
                           <img src={url} alt={`Location image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-300 group-hover:border-blue-500 transition-all cursor-pointer" />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center">
                             <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium px-2 py-1 bg-blue-600 rounded">View full size</span>

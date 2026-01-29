@@ -246,12 +246,12 @@ export default function RegisterPage() {
               </div>
 
               {formData.organizationName && (
-                <div className="bg-white p-3 rounded border border-gray-200">
-                  <p className="text-xs text-gray-500 mb-1">Your URL will be:</p>
-                  <p className="text-sm font-mono text-gray-700">
-                    storynearby.com/{generateSlug(formData.organizationName)}
-                  </p>
-                </div>
+                // <div className="bg-white p-3 rounded border border-gray-200">
+                //   <p className="text-xs text-gray-500 mb-1">Your URL will be:</p>
+                //   <p className="text-sm font-mono text-gray-700">
+                //     storynearby.com/{generateSlug(formData.organizationName)}
+                //   </p>
+                // </div>
               )}
             </div>
           </div>

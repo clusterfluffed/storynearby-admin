@@ -144,11 +144,15 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-green-600 p-4 rounded-full">
-              <MapPin className="h-12 w-12 text-white" />
-            </div>
-          </div>
+          <Link href="/" className="inline-block mb-4">
+            <Image 
+              src="/logo.png" 
+              alt="StoryNearby" 
+              width={200} 
+              height={50}
+              className="h-10 w-auto mx-auto"
+            />
+          </Link>
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
           <p className="text-gray-600 mb-2">
             Welcome to StoryNearby! We've sent a confirmation email to <strong>{formData.email}</strong>
@@ -182,11 +186,16 @@ export default function RegisterPage() {
       <div className="max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <MapPin className="h-8 w-8 text-white" />
-            </div>
-          </div>
+          <Link href="/" className="inline-block mb-4">
+            <Image 
+              src="/logo.png" 
+              alt="StoryNearby" 
+              width={200} 
+              height={50}
+              priority
+              className="h-10 w-auto mx-auto"
+            />
+          </Link>
           <h2 className="text-3xl font-bold text-gray-900">Create Your Account</h2>
           <p className="mt-2 text-sm text-gray-600">
             Join StoryNearby and share your local history with the community
@@ -246,12 +255,12 @@ export default function RegisterPage() {
               </div>
 
               {formData.organizationName && (
-                // <div className="bg-white p-3 rounded border border-gray-200">
-                //   <p className="text-xs text-gray-500 mb-1">Your URL will be:</p>
-                //   <p className="text-sm font-mono text-gray-700">
-                //     storynearby.com/{generateSlug(formData.organizationName)}
-                //   </p>
-                // </div>
+                <div className="bg-white p-3 rounded border border-gray-200">
+                  <p className="text-xs text-gray-500 mb-1">Your URL will be:</p>
+                  <p className="text-sm font-mono text-gray-700">
+                    storynearby.com/{generateSlug(formData.organizationName)}
+                  </p>
+                </div>
               )}
             </div>
           </div>

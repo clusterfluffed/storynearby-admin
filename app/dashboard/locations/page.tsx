@@ -227,7 +227,7 @@ export default function LocationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tenantName && (
           <div className="mb-4">
-            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
+            <h2 className="text-xl text-gray-700">Welcome {tenantName}</h2>
           </div>
         )}
         

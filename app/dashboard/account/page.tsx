@@ -223,7 +223,7 @@ export default function AccountPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <AdminNav activeTab="" />
+        <AdminNav activeTab="locations" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
@@ -236,7 +236,7 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminNav activeTab="" />
+      <AdminNav activeTab="locations" />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>

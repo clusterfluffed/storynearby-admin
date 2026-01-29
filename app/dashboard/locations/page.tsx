@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Edit2, Plus, Search, User, LogOut, Settings, UserCircle, Trash2 } from 'lucide-react'
+import { MapPin, Edit2, Plus, Search, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
@@ -16,7 +16,6 @@ export default function LocationsPage() {
   const [featuredFilter, setFeaturedFilter] = useState('all')
   const [tenantName, setTenantName] = useState('')
   const [userRole, setUserRole] = useState('')
-  const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
 
   useEffect(() => {
@@ -161,68 +160,7 @@ export default function LocationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-xl font-bold text-gray-900">StoryNearby Admin</h1>
-              <nav className="flex space-x-4">
-                <Link href="/dashboard/locations" className="px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600">
-                  Locations
-                </Link>
-                {userRole === 'super_admin' && (
-                  <Link href="/dashboard/invites" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">
-                    Invites
-                  </Link>
-                )}
-              </nav>
-            </div>
-            
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-              >
-                <UserCircle className="h-6 w-6 text-gray-700" />
-              </button>
-              
-              {showProfileMenu && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setShowProfileMenu(false)}
-                  ></div>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-20">
-                    <Link
-                      href="/dashboard/account"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowProfileMenu(false)}
-                    >
-                      <User className="h-4 w-4 mr-3" />
-                      Account
-                    </Link>
-                    {/* <Link
-                      href="/dashboard/settings"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowProfileMenu(false)}
-                    >
-                      <Settings className="h-4 w-4 mr-3" />
-                      Settings
-                    </Link> */}
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      <LogOut className="h-4 w-4 mr-3" />
-                      Sign Out
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminNav activeTab="locations" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tenantName && (

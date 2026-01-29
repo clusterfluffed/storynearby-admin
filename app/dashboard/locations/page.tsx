@@ -17,7 +17,7 @@ export default function LocationsPage() {
   const [tenantName, setTenantName] = useState('')
   const [userRole, setUserRole] = useState('')
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [subscriptionStatus, setSubscriptionStatus] = useState('inactive')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -201,14 +201,14 @@ export default function LocationsPage() {
                       <User className="h-4 w-4 mr-3" />
                       Account
                     </Link>
-                    <Link
+                    {/* <Link
                       href="/dashboard/settings"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowProfileMenu(false)}
                     >
                       <Settings className="h-4 w-4 mr-3" />
                       Settings
-                    </Link>
+                    </Link> */}
                     <button
                       onClick={handleSignOut}
                       className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -231,8 +231,8 @@ export default function LocationsPage() {
           </div>
         )}
         
-        {/* Subscription Warning Banner - Only shows when inactive */}
-        {(subscriptionStatus === 'inactive' || subscriptionStatus === 'past_due') && (
+        {/* Subscription Warning Banner - Only shows when confirmed inactive */}
+        {!loading && subscriptionStatus === 'inactive' && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-md">
             <div className="flex items-start">
               <div className="flex-shrink-0">

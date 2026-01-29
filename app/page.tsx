@@ -48,8 +48,8 @@ export default function Home() {
               Share Your Local History<br />with the Community
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-8 leading-relaxed">
-              StoryNearby helps historical societies and heritage organizations bring their stories to life on mobile devices. 
-              Create interactive tours, manage locations, and connect your community with local history.
+              Story Nearby helps historical societies and heritage organizations bring their stories to life on mobile devices. 
+              Create and manage your historical locations, and connect your community with local history.
             </p>
             
             {/* CTA Buttons */}
@@ -205,7 +205,7 @@ export default function Home() {
                 <CheckCircle className="h-6 w-6 text-blue-200 flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Easy Content Management</h3>
-                  <p className="text-blue-100">No technical skills required - if you can use email, you can use StoryNearby</p>
+                  <p className="text-blue-100">No technical skills required - if you can use email, you can use Story Nearby</p>
                 </div>
               </div>
 
@@ -213,7 +213,7 @@ export default function Home() {
                 <CheckCircle className="h-6 w-6 text-blue-200 flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Museum Hours</h3>
-                  <p className="text-blue-100">Display operating hours and special closures automatically</p>
+                  <p className="text-blue-100">Show information & operating hours</p>
                 </div>
               </div>
 
@@ -221,7 +221,7 @@ export default function Home() {
                 <CheckCircle className="h-6 w-6 text-blue-200 flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Rich Media Support</h3>
-                  <p className="text-blue-100">Upload multiple photos per location to showcase your sites</p>
+                  <p className="text-blue-100">Upload multiple photos per location to showcase your historical sites</p>
                 </div>
               </div>
 
@@ -259,7 +259,7 @@ export default function Home() {
               Ready to Share Your Stories?
             </h2>
             <p className="text-xl text-gray-600 mb-8">
-              Join historical societies across the country using StoryNearby to preserve and share local history
+              Join historical societies across the country using Story Nearby to preserve and share local history
             </p>
             <Link 
               href="/auth/register"
@@ -314,15 +314,15 @@ export default function Home() {
               <h3 className="text-white font-semibold mb-4">Contact</h3>
               <p className="text-gray-400">
                 Questions? We're here to help.<br />
-                <a href="mailto:support@storynearby.com" className="hover:text-white transition-colors">
-                  support@storynearby.com
+                <a href="mailto:sinfo@storynearby.com" className="hover:text-white transition-colors">
+                  info@storynearby.com
                 </a>
               </p>
             </div>
           </div>
 
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
-            <p>&copy; {new Date().getFullYear()} StoryNearby. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Story Nearby. All rights reserved.</p>
           </div>
         </div>
       </footer>

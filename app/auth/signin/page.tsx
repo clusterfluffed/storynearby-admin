@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin } from 'lucide-react'
 
 export default function SignInPage() {
@@ -38,11 +39,16 @@ export default function SignInPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
         {/* Logo & Title */}
         <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <MapPin className="h-8 w-8 text-white" />
-            </div>
-          </div>
+          <Link href="/" className="inline-block mb-4">
+            <Image 
+              src="/logo.png" 
+              alt="StoryNearby" 
+              width={200} 
+              height={50}
+              priority
+              className="h-10 w-auto"
+            />
+          </Link>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
           <p className="mt-2 text-sm text-gray-600">Sign in to StoryNearby Admin</p>
         </div>

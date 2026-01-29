@@ -158,10 +158,20 @@ export default function InvitesPage() {
     mutationFn: async () => {
       setCreateError('')
       
-      // Call API route instead of direct Supabase insert
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        throw new Error('No active session. Please sign in again.')
+      }
+      
+      // Call API route with auth token
       const response = await fetch('/api/admin/create-tenant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           name: tenantName,
           slug: tenantSlug,

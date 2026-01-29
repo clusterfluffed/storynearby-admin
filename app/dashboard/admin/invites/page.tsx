@@ -14,15 +14,70 @@ type Invite = {
   token: string
   expires_at: string
   used: boolean
-  tenants?: { name: string }
+  tenants?: { name: string; state: string }
 }
 
 type Tenant = {
   id: string
   name: string
   slug: string
+  state: string
   active: boolean
 }
+
+// US States list
+const US_STATES = [
+  { code: 'AL', name: 'Alabama' },
+  { code: 'AK', name: 'Alaska' },
+  { code: 'AZ', name: 'Arizona' },
+  { code: 'AR', name: 'Arkansas' },
+  { code: 'CA', name: 'California' },
+  { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' },
+  { code: 'DE', name: 'Delaware' },
+  { code: 'FL', name: 'Florida' },
+  { code: 'GA', name: 'Georgia' },
+  { code: 'HI', name: 'Hawaii' },
+  { code: 'ID', name: 'Idaho' },
+  { code: 'IL', name: 'Illinois' },
+  { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' },
+  { code: 'KS', name: 'Kansas' },
+  { code: 'KY', name: 'Kentucky' },
+  { code: 'LA', name: 'Louisiana' },
+  { code: 'ME', name: 'Maine' },
+  { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' },
+  { code: 'MI', name: 'Michigan' },
+  { code: 'MN', name: 'Minnesota' },
+  { code: 'MS', name: 'Mississippi' },
+  { code: 'MO', name: 'Missouri' },
+  { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' },
+  { code: 'NV', name: 'Nevada' },
+  { code: 'NH', name: 'New Hampshire' },
+  { code: 'NJ', name: 'New Jersey' },
+  { code: 'NM', name: 'New Mexico' },
+  { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' },
+  { code: 'ND', name: 'North Dakota' },
+  { code: 'OH', name: 'Ohio' },
+  { code: 'OK', name: 'Oklahoma' },
+  { code: 'OR', name: 'Oregon' },
+  { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' },
+  { code: 'SC', name: 'South Carolina' },
+  { code: 'SD', name: 'South Dakota' },
+  { code: 'TN', name: 'Tennessee' },
+  { code: 'TX', name: 'Texas' },
+  { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' },
+  { code: 'VA', name: 'Virginia' },
+  { code: 'WA', name: 'Washington' },
+  { code: 'WV', name: 'West Virginia' },
+  { code: 'WI', name: 'Wisconsin' },
+  { code: 'WY', name: 'Wyoming' },
+]
 
 export default function InvitesPage() {
   const queryClient = useQueryClient()
@@ -35,13 +90,15 @@ export default function InvitesPage() {
   // Tenant form fields
   const [tenantName, setTenantName] = useState('')
   const [tenantSlug, setTenantSlug] = useState('')
+  const [tenantState, setTenantState] = useState('')
+  const [createError, setCreateError] = useState('')
 
   const { data: invites, isLoading } = useQuery({
     queryKey: ['invites'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invites')
-        .select('*, tenants (name)')
+        .select('*, tenants (name, state)')
         .order('created_at', { ascending: false })
       
       if (error) throw error
@@ -60,8 +117,8 @@ export default function InvitesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('id, name, slug, active')
-        .order('name')
+        .select('id, name, slug, state, active')
+        .order('state, name')
       
       if (error) throw error
       return data as Tenant[]
@@ -99,21 +156,37 @@ export default function InvitesPage() {
 
   const createTenant = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('tenants')
-        .insert({
+      setCreateError('')
+      
+      // Call API route instead of direct Supabase insert
+      const response = await fetch('/api/admin/create-tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: tenantName,
           slug: tenantSlug,
-          active: true
-        })
-      
-      if (error) throw error
+          state: tenantState,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create tenant')
+      }
+
+      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] })
       setTenantName('')
       setTenantSlug('')
+      setTenantState('')
       setShowCreateTenantForm(false)
+      setCreateError('')
+    },
+    onError: (error: Error) => {
+      setCreateError(error.message)
     },
   })
 
@@ -166,6 +239,14 @@ export default function InvitesPage() {
     setTenantSlug(slug)
   }
 
+  // Group tenants by state
+  const tenantsByState = tenants?.reduce((acc, tenant) => {
+    const state = tenant.state || 'Unknown'
+    if (!acc[state]) acc[state] = []
+    acc[state].push(tenant)
+    return acc
+  }, {} as Record<string, Tenant[]>)
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNav activeTab="invites" />
@@ -196,23 +277,52 @@ export default function InvitesPage() {
         {showCreateTenantForm && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New County</h2>
-            <form onSubmit={handleCreateTenant} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  County Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={tenantName}
-                  onChange={(e) => handleTenantNameChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                  placeholder="Franklin County Historical Society"
-                />
+            
+            {createError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {createError}
               </div>
+            )}
+
+            <form onSubmit={handleCreateTenant} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    County Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={tenantName}
+                    onChange={(e) => handleTenantNameChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                    placeholder="Franklin County Historical Society"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State *
+                  </label>
+                  <select
+                    required
+                    value={tenantState}
+                    onChange={(e) => setTenantState(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="">Select a state...</option>
+                    {US_STATES.map((state) => (
+                      <option key={state.code} value={state.code}>
+                        {state.name} ({state.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Slug (auto-generated)
+                  Slug (auto-generated) *
                 </label>
                 <input
                   type="text"
@@ -222,8 +332,9 @@ export default function InvitesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:ring-green-500 focus:border-green-500"
                   placeholder="franklin-county-historical-society"
                 />
-                <p className="mt-1 text-xs text-gray-500">Used for URL identification</p>
+                <p className="mt-1 text-xs text-gray-500">Used for URL identification. Must be unique.</p>
               </div>
+
               <div className="flex space-x-3">
                 <button
                   type="submit"
@@ -234,7 +345,10 @@ export default function InvitesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateTenantForm(false)}
+                  onClick={() => {
+                    setShowCreateTenantForm(false)
+                    setCreateError('')
+                  }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Cancel
@@ -245,24 +359,34 @@ export default function InvitesPage() {
         )}
 
         {/* Counties List */}
-        {tenants && tenants.length > 0 && (
+        {tenantsByState && Object.keys(tenantsByState).length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Counties</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tenants.map((tenant) => (
-                <div key={tenant.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{tenant.name}</h3>
-                      <p className="text-sm text-gray-500">{tenant.slug}</p>
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      tenant.active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {tenant.active ? 'Active' : 'Inactive'}
-                    </span>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Counties by State</h2>
+            <div className="space-y-6">
+              {Object.entries(tenantsByState).sort().map(([state, stateTenants]) => (
+                <div key={state}>
+                  <h3 className="text-lg font-medium text-gray-700 mb-3 border-b pb-2">
+                    {state}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {stateTenants.map((tenant) => (
+                      <div key={tenant.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{tenant.name}</h4>
+                            <p className="text-sm text-gray-500 mt-1">{tenant.slug}</p>
+                            <p className="text-xs text-gray-400 mt-1">{tenant.state}</p>
+                          </div>
+                          <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
+                            tenant.active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {tenant.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -299,10 +423,16 @@ export default function InvitesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select a county...</option>
-                  {tenants?.filter(t => t.active).map((tenant) => (
-                    <option key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </option>
+                  {Object.entries(tenantsByState || {}).sort().map(([state, stateTenants]) => (
+                    <optgroup key={state} label={state}>
+                      {stateTenants
+                        .filter(t => t.active)
+                        .map((tenant) => (
+                          <option key={tenant.id} value={tenant.id}>
+                            {tenant.name} ({tenant.state})
+                          </option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -338,6 +468,7 @@ export default function InvitesPage() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">County</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -351,6 +482,9 @@ export default function InvitesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {invite.tenants?.name || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {invite.tenants?.state || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

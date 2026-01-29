@@ -121,12 +121,26 @@ export async function POST(req: NextRequest) {
 
     if (profileError) {
       console.error('Error creating profile:', profileError)
+      console.error('Profile data attempted:', {
+        id: authData.user.id,
+        tenant_id: tenant.id,
+        role: 'county_admin',
+        full_name: fullName,
+      })
+      
       // Rollback: delete user and tenant
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
+      } catch (rollbackError) {
+        console.error('Rollback error:', rollbackError)
+      }
       
       return NextResponse.json(
-        { error: 'Failed to create user profile' },
+        { 
+          error: 'Failed to create user profile: ' + profileError.message,
+          details: profileError.hint || 'Please contact support if this continues'
+        },
         { status: 500 }
       )
     }

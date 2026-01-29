@@ -17,6 +17,7 @@ export default function LocationsPage() {
   const [tenantName, setTenantName] = useState('')
   const [userRole, setUserRole] = useState('')
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [subscriptionStatus, setSubscriptionStatus] = useState('inactive')
 
   useEffect(() => {
     async function loadData() {
@@ -32,7 +33,8 @@ export default function LocationsPage() {
           tenant_id,
           role,
           tenants (
-            name
+            name,
+            subscription_status
           )
         `)
         .eq('id', user.id)
@@ -43,24 +45,29 @@ export default function LocationsPage() {
       if (profile) {
         setUserRole(profile.role || '')
         
-        // Check if tenants data exists and extract name
+        // Check if tenants data exists and extract name and subscription status
         if (profile.tenants && typeof profile.tenants === 'object') {
           const name = (profile.tenants as any).name
+          const status = (profile.tenants as any).subscription_status
           console.log('Tenant name from join:', name)
+          console.log('Subscription status:', status)
           setTenantName(name || '')
+          setSubscriptionStatus(status || 'inactive')
         } else {
           // Fallback: fetch tenant directly by ID
           console.log('Fetching tenant by ID:', profile.tenant_id)
           if (profile.tenant_id) {
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name')
+              .select('name, subscription_status')
               .eq('id', profile.tenant_id)
               .single()
             
             if (tenant) {
               console.log('Tenant name from direct fetch:', tenant.name)
+              console.log('Subscription status from direct fetch:', tenant.subscription_status)
               setTenantName(tenant.name || '')
+              setSubscriptionStatus(tenant.subscription_status || 'inactive')
             }
           }
         }
@@ -194,14 +201,14 @@ export default function LocationsPage() {
                       <User className="h-4 w-4 mr-3" />
                       Account
                     </Link>
-                    {/* <Link
+                    <Link
                       href="/dashboard/settings"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowProfileMenu(false)}
                     >
                       <Settings className="h-4 w-4 mr-3" />
                       Settings
-                    </Link> */}
+                    </Link>
                     <button
                       onClick={handleSignOut}
                       className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -220,7 +227,42 @@ export default function LocationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tenantName && (
           <div className="mb-4">
-            <h2 className="text-xl text-gray-700">Welcome {tenantName}</h2>
+            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
+          </div>
+        )}
+        
+        {/* Subscription Warning Banner - Only shows when inactive */}
+        {(subscriptionStatus === 'inactive' || subscriptionStatus === 'past_due') && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-md">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-4 flex-1">
+                <h3 className="text-lg font-bold text-red-800 mb-2">
+                  ⚠️ Subscription Required
+                </h3>
+                <p className="text-red-700 mb-3">
+                  Your locations are currently <strong>hidden from the mobile app</strong>. Community members cannot discover your historical sites until you activate a subscription.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/dashboard/subscription"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                  >
+                    Subscribe Now - Start 14-Day Free Trial
+                  </Link>
+                  <Link
+                    href="/dashboard/account"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-white text-red-700 font-semibold rounded-lg border-2 border-red-300 hover:bg-red-50 transition-colors"
+                  >
+                    View Account Details
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         

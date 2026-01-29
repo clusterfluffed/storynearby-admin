@@ -18,8 +18,7 @@ function AccountPageContent() {
 
   const [accountData, setAccountData] = useState({
     email: '',
-    firstName: '',
-    lastName: '',
+    fullName: '',
     createdAt: ''
   })
 
@@ -57,11 +56,10 @@ function AccountPageContent() {
         return
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select(`
-          first_name, 
-          last_name,
+          full_name,
           tenant_id,
           tenants (
             subscription_status,
@@ -75,26 +73,35 @@ function AccountPageContent() {
         .eq('id', user.id)
         .single()
 
+      console.log('Profile query result:', profile)
+      console.log('Profile query error:', profileError)
+
       if (profile) {
         setAccountData({
           email: user.email || '',
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
+          fullName: profile.full_name || '',
           createdAt: new Date(user.created_at).toLocaleDateString()
         })
 
         setTenantId(profile.tenant_id)
 
         const tenant = profile.tenants as any
+        console.log('Tenant data:', tenant)
+        
         if (tenant) {
+          const subscriptionStatus = tenant.subscription_status || 'inactive'
+          console.log('Setting subscription status to:', subscriptionStatus)
+          
           setSubscriptionData({
-            status: tenant.subscription_status || 'inactive',
+            status: subscriptionStatus,
             tier: tenant.subscription_tier || 'standard',
             startDate: tenant.subscription_start_date ? new Date(tenant.subscription_start_date) : null,
             endDate: tenant.subscription_end_date ? new Date(tenant.subscription_end_date) : null,
             trialEndDate: tenant.trial_end_date ? new Date(tenant.trial_end_date) : null,
             stripeCustomerId: tenant.stripe_customer_id || null,
           })
+        } else {
+          console.log('No tenant data found in profile')
         }
       }
 
@@ -119,8 +126,7 @@ function AccountPageContent() {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          first_name: accountData.firstName,
-          last_name: accountData.lastName,
+          full_name: accountData.fullName,
         })
         .eq('id', user.id)
 
@@ -373,32 +379,17 @@ function AccountPageContent() {
                 <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={accountData.firstName}
-                    onChange={(e) => setAccountData({ ...accountData, firstName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="John"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={accountData.lastName}
-                    onChange={(e) => setAccountData({ ...accountData, lastName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Doe"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={accountData.fullName}
+                  onChange={(e) => setAccountData({ ...accountData, fullName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="John Doe"
+                />
               </div>
 
               <div>

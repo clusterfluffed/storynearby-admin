@@ -145,7 +145,7 @@ export default function SupportPage() {
           </div>
 
           <p className="text-gray-600 mb-6">
-            Need help? Fill out the form below and our support team will get back to you within 24-48 hours.
+            Need help? Fill out the form below and our support team will get back to you as quickly as posible.
           </p>
 
           {error && (

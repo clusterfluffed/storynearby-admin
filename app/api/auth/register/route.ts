@@ -88,11 +88,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Step 2: Create user account
+    // Step 2: Create user account (email verification sent automatically)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // Require email verification
+      email_confirm: false, // Require email verification (Supabase sends email automatically)
       user_metadata: {
         full_name: fullName,
       },
@@ -131,20 +131,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Step 4: Send verification email
-    const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-      },
-    })
-
-    if (emailError) {
-      console.error('Error sending verification email:', emailError)
-      // Don't rollback - account is created, just email failed
-      // User can request new verification email
-    }
+    // Note: Supabase automatically sends verification email when email_confirm is false
 
     return NextResponse.json({
       success: true,

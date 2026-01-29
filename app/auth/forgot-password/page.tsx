@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin, ArrowLeft, Mail } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
@@ -61,11 +62,16 @@ export default function ForgotPasswordPage() {
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <MapPin className="h-8 w-8 text-white" />
-            </div>
-          </div>
+          <Link href="/" className="inline-block mb-4">
+            <Image 
+              src="/logo.png" 
+              alt="StoryNearby" 
+              width={200} 
+              height={50}
+              priority
+              className="h-10 w-auto mx-auto"
+            />
+          </Link>
           <h2 className="text-3xl font-bold text-gray-900">Reset Password</h2>
           <p className="mt-2 text-sm text-gray-600">
             Enter your email and we'll send you a reset link

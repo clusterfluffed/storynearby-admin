@@ -10,13 +10,16 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              {/* TODO: Replace with actual logo */}
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <MapPin className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-gray-900">StoryNearby</span>
-            </div>
+            <Link href="/" className="flex items-center">
+              <Image 
+                src="/logo.png" 
+                alt="StoryNearby" 
+                width={200} 
+                height={50}
+                priority
+                className="h-8 w-auto"
+              />
+            </Link>
 
             {/* Auth Buttons */}
             <div className="flex items-center space-x-3">
@@ -281,12 +284,16 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8">
             {/* Company Info */}
             <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-white">StoryNearby</span>
-              </div>
+              <Link href="/" className="inline-block mb-4">
+                <Image 
+                  src="/logo.png" 
+                  alt="StoryNearby" 
+                  width={150} 
+                  height={38}
+                  className="h-6 w-auto"
+                  style={{ filter: 'brightness(0) invert(1)' }}
+                />
+              </Link>
               <p className="text-gray-400">
                 Helping historical societies share local history with their communities.
               </p>

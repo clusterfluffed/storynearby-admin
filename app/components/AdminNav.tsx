@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin, Mail, Users, MessageSquare, ChevronDown, Shield, UserCircle, User, LogOut } from 'lucide-react'
 
 interface AdminNavProps {
@@ -46,10 +47,16 @@ export default function AdminNav({ activeTab }: AdminNavProps) {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-8">
             {/* Logo/Brand */}
-            <div className="flex-shrink-0 flex items-center">
-              <MapPin className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">StoryNearby</span>
-            </div>
+            <Link href="/dashboard/locations" className="flex-shrink-0 flex items-center">
+              <Image 
+                src="/logo.png" 
+                alt="StoryNearby" 
+                width={150} 
+                height={38}
+                priority
+                className="h-7 w-auto"
+              />
+            </Link>
 
             {/* Main Navigation */}
             <div className="flex space-x-4">

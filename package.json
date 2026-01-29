@@ -18,7 +18,7 @@
     "lucide-react": "^0.314.0",
     "leaflet": "^1.9.4",
     "stripe": "^17.3.1",
-    "@stripe/stripe-js": "^4.11.0"
+    "@stripe/stripe-js": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",

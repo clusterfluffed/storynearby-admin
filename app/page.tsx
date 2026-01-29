@@ -71,7 +71,7 @@ export default function Home() {
 
             {/* Trust Badge */}
             <p className="mt-6 text-sm text-gray-500">
-              ✨ 14-day free trial • No credit card required • Cancel anytime
+              ✨ 14-day free trial • Cancel anytime if you don't love it
             </p>
           </div>
         </section>

@@ -16,25 +16,58 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    // Get the session from cookies
-    const cookieStore = cookies()
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    // Get the current user from the request
+    // Extract auth token from Authorization header or cookies
+    const authHeader = req.headers.get('authorization')
+    let accessToken = authHeader?.replace('Bearer ', '')
     
-    // Create a Supabase client with the request cookies
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    })
+    if (!accessToken) {
+      // Try to get from cookies
+      const cookieStore = cookies()
+      
+      // Try different possible cookie names
+      const possibleTokens = [
+        cookieStore.get('sb-access-token'),
+        cookieStore.get('supabase-auth-token'),
+      ]
+      
+      for (const cookie of possibleTokens) {
+        if (cookie?.value) {
+          accessToken = cookie.value
+          break
+        }
+      }
+      
+      // If still no token, try to parse the session cookie
+      if (!accessToken) {
+        const allCookies = cookieStore.getAll()
+        const authCookie = allCookies.find(c => c.name.includes('auth-token'))
+        if (authCookie) {
+          try {
+            const parsed = JSON.parse(authCookie.value)
+            accessToken = parsed.access_token || parsed.accessToken
+          } catch (e) {
+            // Cookie might not be JSON
+            accessToken = authCookie.value
+          }
+        }
+      }
+    }
 
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (!accessToken) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - No valid session found. Please sign in again.' 
+      }, { status: 401 })
+    }
+
+    // Verify the token and get user
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(accessToken)
     
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 })
+      console.error('Auth error:', userError)
+      return NextResponse.json({ 
+        error: 'Unauthorized - Invalid session. Please sign in again.' 
+      }, { status: 401 })
     }
 
     // Check if user is super_admin
@@ -44,12 +77,22 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profileError || profile?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden: Super admin access required' }, { status: 403 })
+    if (profileError) {
+      console.error('Profile error:', profileError)
+      return NextResponse.json({ 
+        error: 'Error checking user permissions' 
+      }, { status: 500 })
+    }
+
+    if (profile?.role !== 'super_admin') {
+      return NextResponse.json({ 
+        error: 'Forbidden: Super admin access required. Your role: ' + (profile?.role || 'none')
+      }, { status: 403 })
     }
 
     // Get request body
-    const { name, slug, state } = await req.json()
+    const body = await req.json()
+    const { name, slug, state } = body
 
     // Validate input
     if (!name || !slug || !state) {

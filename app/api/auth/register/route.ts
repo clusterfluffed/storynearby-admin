@@ -88,11 +88,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Step 2: Create user account (email verification sent automatically)
+    // Step 2: Create user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // Require email verification (Supabase sends email automatically)
+      email_confirm: false, // User needs to verify email
       user_metadata: {
         full_name: fullName,
       },
@@ -109,40 +109,101 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Step 3: Create profile
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: authData.user.id,
-        tenant_id: tenant.id,
-        role: 'county_admin',
-        full_name: fullName,
-      })
+    console.log('User created:', authData.user.id)
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError)
-      console.error('Profile data attempted:', {
-        id: authData.user.id,
-        tenant_id: tenant.id,
-        role: 'county_admin',
-        full_name: fullName,
+    // Step 2.5: Send confirmation email explicitly
+    try {
+      const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       })
       
-      // Rollback: delete user and tenant
-      try {
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-        await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
-      } catch (rollbackError) {
-        console.error('Rollback error:', rollbackError)
+      if (emailError) {
+        console.error('Error sending confirmation email:', emailError)
+        // Don't fail registration if email fails - user can resend later
+      } else {
+        console.log('Confirmation email sent to:', email)
       }
+    } catch (emailErr) {
+      console.error('Exception sending email:', emailErr)
+      // Continue anyway - user can resend
+    }
+
+    // Step 3: Check if profile already exists (might be auto-created by trigger)
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (existingProfile) {
+      // Profile was auto-created by trigger, update it instead of inserting
+      console.log('Profile already exists (auto-created), updating...')
       
-      return NextResponse.json(
-        { 
-          error: 'Failed to create user profile: ' + profileError.message,
-          details: profileError.hint || 'Please contact support if this continues'
-        },
-        { status: 500 }
-      )
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          tenant_id: tenant.id,
+          role: 'county_admin',
+          full_name: fullName,
+        })
+        .eq('id', authData.user.id)
+
+      if (updateError) {
+        console.error('Error updating profile:', updateError)
+        // Rollback
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+          await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
+        } catch (rollbackError) {
+          console.error('Rollback error:', rollbackError)
+        }
+        
+        return NextResponse.json(
+          { 
+            error: 'Failed to update user profile: ' + updateError.message,
+            details: updateError.hint || 'Please contact support if this continues'
+          },
+          { status: 500 }
+        )
+      }
+    } else {
+      // No profile exists, create it
+      console.log('Creating new profile...')
+      
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          tenant_id: tenant.id,
+          role: 'county_admin',
+          full_name: fullName,
+        })
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        console.error('Profile data attempted:', {
+          id: authData.user.id,
+          tenant_id: tenant.id,
+          role: 'county_admin',
+          full_name: fullName,
+        })
+        
+        // Rollback
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+          await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
+        } catch (rollbackError) {
+          console.error('Rollback error:', rollbackError)
+        }
+        
+        return NextResponse.json(
+          { 
+            error: 'Failed to create user profile: ' + profileError.message,
+            details: profileError.hint || 'Please contact support if this continues'
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // Note: Supabase automatically sends verification email when email_confirm is false

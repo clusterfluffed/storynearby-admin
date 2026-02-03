@@ -42,7 +42,7 @@ export default function SignInPage() {
           <Link href="/" className="inline-block mb-4">
             <Image 
               src="/logo.png" 
-              alt="StoryNearby" 
+              alt="History Nearby" 
               width={200} 
               height={50}
               priority
@@ -50,7 +50,7 @@ export default function SignInPage() {
             />
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
-          <p className="mt-2 text-sm text-gray-600">Sign in to Story Nearby</p>
+          <p className="mt-2 text-sm text-gray-600">Sign in to History Nearby</p>
         </div>
 
         {/* Sign In Form */}
@@ -123,7 +123,7 @@ export default function SignInPage() {
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500">New to StoryNearby?</span>
+            <span className="px-4 bg-white text-gray-500">New here?</span>
           </div>
         </div>
 

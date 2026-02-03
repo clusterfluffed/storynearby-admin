@@ -210,9 +210,24 @@ export default function LocationsPage() {
           title: location.name,
         })
 
+        // Build info window content with image and clickable link
+        const hasImage = location.images && location.images.length > 0
+        const imageHtml = hasImage 
+          ? `<img src="${location.images[0]}" alt="${location.name}" style="width: 200px; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" />`
+          : ''
+        
+        const infoContent = `
+          <div style="padding: 8px; max-width: 220px; cursor: pointer;" onclick="window.location.href='/dashboard/locations/${location.id}'">
+            ${imageHtml}
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #1f2937;">${location.name}</div>
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">${location.address || ''}</div>
+            <div style="font-size: 11px; color: #2563eb; text-decoration: underline;">Click to view details →</div>
+          </div>
+        `
+
         // @ts-ignore
         const infoWindow = new google.maps.InfoWindow({
-          content: `<div style="padding: 8px;"><strong>${location.name}</strong><br>${location.address || ''}</div>`
+          content: infoContent
         })
 
         marker.addListener('click', () => {

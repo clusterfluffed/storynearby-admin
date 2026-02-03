@@ -100,6 +100,75 @@ export default function LocationsPage() {
     loadData()
   }, [router])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/auth/signin')
+  }
+
+  const handleDelete = async (e: React.MouseEvent, locationId: string, locationName: string) => {
+    e.stopPropagation()
+    
+    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId)
+
+      if (error) {
+        alert('Error deleting location: ' + error.message)
+        return
+      }
+
+      // Refresh the locations list
+      setLocations(locations.filter(loc => loc.id !== locationId))
+    } catch (err) {
+      alert('Failed to delete location')
+      console.error(err)
+    }
+  }
+
+  const handleTileClick = (locationId: string, e: React.MouseEvent) => {
+    // Don't navigate if clicking the edit button or delete button
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
+  const handleEditClick = (e: React.MouseEvent, locationId: string) => {
+    e.stopPropagation()
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
+  const filteredLocations = locations?.filter(location => {
+    const matchesSearch = !searchTerm || 
+      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      location.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      location.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && location.active) ||
+      (statusFilter === 'inactive' && !location.active)
+    
+    const matchesFeatured = featuredFilter === 'all' ||
+      (featuredFilter === 'featured' && location.featured) ||
+      (featuredFilter === 'not-featured' && !location.featured)
+    
+    return matchesSearch && matchesStatus && matchesFeatured
+  })
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+    setFeaturedFilter('all')
+  }
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || featuredFilter !== 'all'
+
   // Initialize Google Maps when map view is toggled
   useEffect(() => {
     if (!showMapView || !mapRef.current) return
@@ -171,75 +240,6 @@ export default function LocationsPage() {
       initMap()
     }
   }, [showMapView, filteredLocations])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/auth/signin')
-  }
-
-  const handleDelete = async (e: React.MouseEvent, locationId: string, locationName: string) => {
-    e.stopPropagation()
-    
-    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .delete()
-        .eq('id', locationId)
-
-      if (error) {
-        alert('Error deleting location: ' + error.message)
-        return
-      }
-
-      // Refresh the locations list
-      setLocations(locations.filter(loc => loc.id !== locationId))
-    } catch (err) {
-      alert('Failed to delete location')
-      console.error(err)
-    }
-  }
-
-  const handleTileClick = (locationId: string, e: React.MouseEvent) => {
-    // Don't navigate if clicking the edit button or delete button
-    if ((e.target as HTMLElement).closest('button')) {
-      return
-    }
-    router.push(`/dashboard/locations/${locationId}`)
-  }
-
-  const handleEditClick = (e: React.MouseEvent, locationId: string) => {
-    e.stopPropagation()
-    router.push(`/dashboard/locations/${locationId}`)
-  }
-
-  const filteredLocations = locations?.filter(location => {
-    const matchesSearch = !searchTerm || 
-      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      location.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      location.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && location.active) ||
-      (statusFilter === 'inactive' && !location.active)
-    
-    const matchesFeatured = featuredFilter === 'all' ||
-      (featuredFilter === 'featured' && location.featured) ||
-      (featuredFilter === 'not-featured' && !location.featured)
-    
-    return matchesSearch && matchesStatus && matchesFeatured
-  })
-
-  const clearFilters = () => {
-    setSearchTerm('')
-    setStatusFilter('all')
-    setFeaturedFilter('all')
-  }
-
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || featuredFilter !== 'all'
 
   return (
     <div className="min-h-screen bg-gray-50">

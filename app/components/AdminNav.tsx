@@ -8,7 +8,7 @@ import Image from 'next/image'
 import { MapPin, Mail, Users, MessageSquare, ChevronDown, Shield, UserCircle, User, LogOut } from 'lucide-react'
 
 interface AdminNavProps {
-  activeTab: 'locations' | 'support' | 'invites' | 'tickets'
+  activeTab: 'locations' | 'support' | 'tickets'
 }
 
 export default function AdminNav({ activeTab }: AdminNavProps) {
@@ -92,7 +92,7 @@ export default function AdminNav({ activeTab }: AdminNavProps) {
                   <button
                     onClick={() => setShowAdminDropdown(!showAdminDropdown)}
                     className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      activeTab === 'invites' || activeTab === 'tickets'
+                      activeTab === 'tickets'
                         ? 'bg-blue-100 text-blue-700'
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
@@ -113,19 +113,6 @@ export default function AdminNav({ activeTab }: AdminNavProps) {
                       
                       {/* Dropdown Menu */}
                       <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                        <Link
-                          href="/dashboard/admin/invites"
-                          onClick={() => setShowAdminDropdown(false)}
-                          className={`flex items-center px-4 py-2 text-sm transition-colors ${
-                            activeTab === 'invites'
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Users className="h-4 w-4 mr-3" />
-                          User Invites
-                        </Link>
-
                         <Link
                           href="/dashboard/admin/support-tickets"
                           onClick={() => setShowAdminDropdown(false)}

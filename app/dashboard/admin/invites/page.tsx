@@ -1,5 +1,8 @@
 'use client'
 
+// Disable static generation for this page (requires auth + React Query)
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -120,7 +123,13 @@ export default function InvitesPage() {
         .select('id, name, slug, state, active')
         .order('state, name')
       
-      if (error) throw error
+      console.log('Tenants query result:', { data, error })
+      
+      if (error) {
+        console.error('Error loading tenants:', error)
+        throw error
+      }
+      
       return data as Tenant[]
     },
   })
@@ -256,6 +265,10 @@ export default function InvitesPage() {
     acc[state].push(tenant)
     return acc
   }, {} as Record<string, Tenant[]>)
+
+  // Debug logging
+  console.log('Tenants:', tenants)
+  console.log('Tenants by state:', tenantsByState)
 
   return (
     <div className="min-h-screen bg-gray-50">

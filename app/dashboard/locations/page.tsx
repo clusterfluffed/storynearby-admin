@@ -246,8 +246,8 @@ export default function LocationsPage() {
                 frameBorder="0"
                 style={{ border: 0 }}
                 src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${
-                  filteredLocations.length > 0 && filteredLocations[0].latitude && filteredLocations[0].longitude
-                    ? `${filteredLocations[0].latitude},${filteredLocations[0].longitude}`
+                  filteredLocations.length > 0 && filteredLocations[0].lat && filteredLocations[0].lng
+                    ? `${filteredLocations[0].lat},${filteredLocations[0].lng}`
                     : '39.8283,-98.5795'
                 }&zoom=10`}
                 allowFullScreen
@@ -257,15 +257,15 @@ export default function LocationsPage() {
             {/* Map markers list */}
             <div className="mt-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Locations with Coordinates ({filteredLocations.filter(loc => loc.latitude && loc.longitude).length})
+                Locations with Coordinates ({filteredLocations.filter(loc => loc.lat && loc.lng).length})
               </h3>
               <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                {filteredLocations.filter(loc => loc.latitude && loc.longitude).length === 0 ? (
+                {filteredLocations.filter(loc => loc.lat && loc.lng).length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">
                     No locations with coordinates yet. Add coordinates to locations to see them on the map.
                   </p>
                 ) : (
-                  filteredLocations.filter(loc => loc.latitude && loc.longitude).map((location) => (
+                  filteredLocations.filter(loc => loc.lat && loc.lng).map((location) => (
                     <div
                       key={location.id}
                       className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
@@ -276,7 +276,7 @@ export default function LocationsPage() {
                         <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
                         <p className="text-xs text-gray-600 truncate">{location.address}</p>
                         <p className="text-xs text-gray-500 font-mono">
-                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                         </p>
                       </div>
                     </div>
@@ -442,11 +442,11 @@ export default function LocationsPage() {
                       </div>
                     )}
 
-                    {(location.latitude && location.longitude) && (
+                    {(location.lat && location.lng) && (
                       <div>
                         <p className="text-xs font-medium text-gray-500">Coordinates</p>
                         <p className="text-sm text-gray-700 font-mono">
-                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                         </p>
                       </div>
                     )}

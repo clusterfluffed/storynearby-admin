@@ -8,6 +8,32 @@ import { MapPin, Save, Trash2, Edit2, Upload, X, GripVertical, Globe, Facebook, 
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
+type DayHours = {
+  open: string | null
+  close: string | null
+  closed: boolean
+}
+
+type MuseumHours = {
+  monday: DayHours
+  tuesday: DayHours
+  wednesday: DayHours
+  thursday: DayHours
+  friday: DayHours
+  saturday: DayHours
+  sunday: DayHours
+}
+
+const defaultHours: MuseumHours = {
+  monday: { open: '09:00', close: '17:00', closed: false },
+  tuesday: { open: '09:00', close: '17:00', closed: false },
+  wednesday: { open: '09:00', close: '17:00', closed: false },
+  thursday: { open: '09:00', close: '17:00', closed: false },
+  friday: { open: '09:00', close: '17:00', closed: false },
+  saturday: { open: '10:00', close: '16:00', closed: false },
+  sunday: { open: null, close: null, closed: true }
+}
+
 const LOCATION_CATEGORIES = [
   'Archaeological Site',
   'Battlefield',
@@ -33,6 +59,7 @@ export default function LocationDetailPage() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const [compressing, setCompressing] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
   
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
@@ -47,7 +74,6 @@ export default function LocationDetailPage() {
     category: '',
     active: true,
     is_museum: false,
-    museum_hours: '',
     youtube_url: '',
     facebook_url: '',
     instagram_url: '',
@@ -85,6 +111,26 @@ export default function LocationDetailPage() {
     }
   }
 
+  const handleMuseumToggle = (checked: boolean) => {
+    setFormData({ ...formData, is_museum: checked })
+    if (checked && !museumHours) {
+      setMuseumHours(defaultHours)
+    }
+  }
+
+  const handleHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
+    if (!museumHours) return
+    
+    setMuseumHours({
+      ...museumHours,
+      [day]: {
+        ...museumHours[day],
+        [field]: value,
+        ...(field === 'closed' && value === true ? { open: null, close: null } : {})
+      }
+    })
+  }
+
   useEffect(() => {
     async function loadLocation() {
       const { data, error } = await supabase
@@ -108,12 +154,15 @@ export default function LocationDetailPage() {
         category: data.category || '',
         active: data.active ?? true,
         is_museum: data.is_museum || false,
-        museum_hours: data.museum_hours || '',
         youtube_url: data.youtube_url || '',
         facebook_url: data.facebook_url || '',
         instagram_url: data.instagram_url || '',
         website_url: data.website_url || '',
       })
+
+      if (data.museum_hours) {
+        setMuseumHours(data.museum_hours)
+      }
 
       if (data.images) {
         setExistingImages(data.images)
@@ -349,7 +398,7 @@ export default function LocationDetailPage() {
           category: formData.category || null,
           active: formData.active,
           is_museum: formData.is_museum,
-          museum_hours: formData.is_museum ? formData.museum_hours : null,
+          museum_hours: formData.is_museum ? museumHours : null,
           youtube_url: formData.youtube_url || null,
           facebook_url: formData.facebook_url || null,
           instagram_url: formData.instagram_url || null,
@@ -409,12 +458,15 @@ export default function LocationDetailPage() {
       category: formData.category,
       active: formData.active,
       is_museum: formData.is_museum,
-      museum_hours: formData.museum_hours,
       youtube_url: formData.youtube_url,
       facebook_url: formData.facebook_url,
       instagram_url: formData.instagram_url,
       website_url: formData.website_url,
     })
+    // Reset museum hours to original loaded value
+    if (formData.is_museum) {
+      // Reload from database...keeping current value
+    }
     setExistingImages([...originalImages])
     setNewImageFiles([])
     setNewImagePreviews([])
@@ -541,7 +593,7 @@ export default function LocationDetailPage() {
                   <input
                     type="checkbox"
                     checked={formData.is_museum}
-                    onChange={(e) => setFormData({ ...formData, is_museum: e.target.checked })}
+                    onChange={(e) => handleMuseumToggle(e.target.checked)}
                     disabled={!editMode}
                     className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
@@ -575,19 +627,50 @@ export default function LocationDetailPage() {
                 />
               </div>
 
-              {formData.is_museum && (
+              {formData.is_museum && museumHours && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
                     Museum Hours
                   </label>
-                  <textarea
-                    value={formData.museum_hours}
-                    onChange={(e) => setFormData({ ...formData, museum_hours: e.target.value })}
-                    disabled={!editMode}
-                    rows={3}
-                    placeholder="e.g., Monday-Friday: 9AM-5PM, Saturday: 10AM-4PM, Sunday: Closed"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
-                  />
+                  <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    {(Object.keys(museumHours) as Array<keyof MuseumHours>).map((day) => (
+                      <div key={day} className="grid grid-cols-6 gap-4 items-center">
+                        <div className="col-span-1">
+                          <span className="text-sm font-medium text-gray-700 capitalize">{day}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <input
+                            type="time"
+                            value={museumHours[day].open || ''}
+                            onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
+                            disabled={!editMode || museumHours[day].closed}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input
+                            type="time"
+                            value={museumHours[day].close || ''}
+                            onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
+                            disabled={!editMode || museumHours[day].closed}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={museumHours[day].closed}
+                              onChange={(e) => handleHoursChange(day, 'closed', e.target.checked)}
+                              disabled={!editMode}
+                              className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
+                            />
+                            <span className="ml-2 text-sm text-gray-600">Closed</span>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MapPin, Edit2, Plus, Search, Trash2, Map } from 'lucide-react'
 import Link from 'next/link'
@@ -18,6 +18,8 @@ export default function LocationsPage() {
   const [userRole, setUserRole] = useState('')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const [showMapView, setShowMapView] = useState(false)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const googleMapRef = useRef<any>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -97,6 +99,78 @@ export default function LocationsPage() {
 
     loadData()
   }, [router])
+
+  // Initialize Google Maps when map view is toggled
+  useEffect(() => {
+    if (!showMapView || !mapRef.current) return
+
+    const initMap = () => {
+      const locationsWithCoords = filteredLocations.filter(loc => loc.lat && loc.lng)
+      
+      if (locationsWithCoords.length === 0) {
+        if (mapRef.current) {
+          mapRef.current.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-50"><p class="text-gray-500 text-center py-8">No locations with coordinates to display</p></div>'
+        }
+        return
+      }
+
+      const center = { 
+        lat: locationsWithCoords[0].lat, 
+        lng: locationsWithCoords[0].lng 
+      }
+
+      // @ts-ignore
+      const map = new google.maps.Map(mapRef.current, {
+        zoom: locationsWithCoords.length === 1 ? 14 : 10,
+        center: center,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+      })
+
+      googleMapRef.current = map
+
+      // @ts-ignore
+      const bounds = new google.maps.LatLngBounds()
+
+      locationsWithCoords.forEach((location) => {
+        // @ts-ignore
+        const marker = new google.maps.Marker({
+          position: { lat: location.lat, lng: location.lng },
+          map: map,
+          title: location.name,
+        })
+
+        // @ts-ignore
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding: 8px;"><strong>${location.name}</strong><br>${location.address || ''}</div>`
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+
+        bounds.extend(marker.position)
+      })
+
+      if (locationsWithCoords.length > 1) {
+        map.fitBounds(bounds)
+      }
+    }
+
+    // Load Google Maps script if not already loaded
+    // @ts-ignore
+    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      script.async = true
+      script.defer = true
+      script.onload = initMap
+      document.head.appendChild(script)
+    } else {
+      initMap()
+    }
+  }, [showMapView, filteredLocations])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -239,25 +313,18 @@ export default function LocationsPage() {
         {showMapView && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
-            <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '600px' }}>
-              <iframe
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                style={{ border: 0 }}
-                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${
-                  filteredLocations.length > 0 && filteredLocations[0].lat && filteredLocations[0].lng
-                    ? `${filteredLocations[0].lat},${filteredLocations[0].lng}`
-                    : '39.8283,-98.5795'
-                }&zoom=10`}
-                allowFullScreen
-              ></iframe>
-            </div>
+            
+            {/* Google Maps Container */}
+            <div 
+              ref={mapRef}
+              className="rounded-lg overflow-hidden bg-gray-100" 
+              style={{ height: '600px', width: '100%' }}
+            />
             
             {/* Map markers list */}
             <div className="mt-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Locations with Coordinates ({filteredLocations.filter(loc => loc.lat && loc.lng).length})
+                Locations ({filteredLocations.filter(loc => loc.lat && loc.lng).length})
               </h3>
               <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
                 {filteredLocations.filter(loc => loc.lat && loc.lng).length === 0 ? (
@@ -284,11 +351,6 @@ export default function LocationsPage() {
                 )}
               </div>
             </div>
-            
-            <p className="mt-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded p-3">
-              <strong>📍 Map Setup:</strong> To enable an interactive map with markers, you'll need to add a Google Maps API key. 
-              For now, this shows a static embedded map. The list below shows all locations with coordinates.
-            </p>
           </div>
         )}
 

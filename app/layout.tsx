@@ -6,13 +6,13 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'History Nearby',
-  description: 'Help historical organizations share local history with their communities',
+  description: 'Help historical societies share local history with their communities',
 }
 
 export default function RootLayout({
   children,
 }: {
-  children: React.node
+  children: React.ReactNode
 }) {
   return (
     <html lang="en">

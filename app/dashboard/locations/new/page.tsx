@@ -44,7 +44,7 @@ const LOCATION_CATEGORIES = [
   'Monument',
   'Museum',
   'Religious Site',
-  'Other'  
+  'Other' 
 ]
 
 export default function NewLocationPage() {

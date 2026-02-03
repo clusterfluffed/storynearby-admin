@@ -44,7 +44,7 @@ const LOCATION_CATEGORIES = [
   'Monument',
   'Museum',
   'Religious Site',
-  'Other'
+  'Other' 
 ]
 
 export default function LocationDetailPage() {
@@ -633,43 +633,46 @@ export default function LocationDetailPage() {
                     Museum Hours
                   </label>
                   <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    {(Object.keys(museumHours) as Array<keyof MuseumHours>).map((day) => (
-                      <div key={day} className="grid grid-cols-6 gap-4 items-center">
-                        <div className="col-span-1">
-                          <span className="text-sm font-medium text-gray-700 capitalize">{day}</span>
-                        </div>
-                        <div className="col-span-2">
-                          <input
-                            type="time"
-                            value={museumHours[day].open || ''}
-                            onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
-                            disabled={!editMode || museumHours[day].closed}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <input
-                            type="time"
-                            value={museumHours[day].close || ''}
-                            onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
-                            disabled={!editMode || museumHours[day].closed}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                          />
-                        </div>
-                        <div className="col-span-1 flex justify-center">
-                          <label className="flex items-center">
+                    {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                      const dayKey = day as keyof MuseumHours
+                      return (
+                        <div key={day} className="grid grid-cols-6 gap-4 items-center">
+                          <div className="col-span-1">
+                            <span className="text-sm font-medium text-gray-700 capitalize">{day}</span>
+                          </div>
+                          <div className="col-span-2">
                             <input
-                              type="checkbox"
-                              checked={museumHours[day].closed}
-                              onChange={(e) => handleHoursChange(day, 'closed', e.target.checked)}
-                              disabled={!editMode}
-                              className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
+                              type="time"
+                              value={museumHours[dayKey].open || ''}
+                              onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
+                              disabled={!editMode || museumHours[dayKey].closed}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                             />
-                            <span className="ml-2 text-sm text-gray-600">Closed</span>
-                          </label>
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              type="time"
+                              value={museumHours[dayKey].close || ''}
+                              onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
+                              disabled={!editMode || museumHours[dayKey].closed}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={museumHours[dayKey].closed}
+                                onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
+                                disabled={!editMode}
+                                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
+                              />
+                              <span className="ml-2 text-sm text-gray-600">Closed</span>
+                            </label>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}

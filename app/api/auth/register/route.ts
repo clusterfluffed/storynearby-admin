@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     // Step 2.5: Send confirmation email explicitly
     try {
       const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://historynearbyapp.com'}/auth/callback`,
       })
       
       if (emailError) {

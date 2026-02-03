@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MapPin, Edit2, Plus, Search, Trash2 } from 'lucide-react'
+import { MapPin, Edit2, Plus, Search, Trash2, Map } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
@@ -17,6 +17,7 @@ export default function LocationsPage() {
   const [tenantName, setTenantName] = useState('')
   const [userRole, setUserRole] = useState('')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
+  const [showMapView, setShowMapView] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -72,9 +73,11 @@ export default function LocationsPage() {
         }
       }
 
+      // Fetch locations filtered by user's tenant_id
       const { data, error } = await supabase
         .from('locations')
         .select('*')
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -165,7 +168,7 @@ export default function LocationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tenantName && (
           <div className="mb-4">
-            <h2 className="text-xl text-gray-700">Welcome {tenantName}</h2>
+            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
           </div>
         )}
         
@@ -208,13 +211,22 @@ export default function LocationsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
           </div>
-          <Link 
-            href="/dashboard/locations/new"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Add Location
-          </Link>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowMapView(!showMapView)}
+              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <Map className="h-5 w-5 mr-2" />
+              {showMapView ? 'List View' : 'Map View'}
+            </button>
+            <Link 
+              href="/dashboard/locations/new"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Location
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -314,10 +326,10 @@ export default function LocationsPage() {
               <div 
                 key={location.id} 
                 onClick={(e) => handleTileClick(location.id, e)}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
               >
                 {location.images && location.images.length > 0 ? (
-                  <div className="relative h-48 bg-gray-200 overflow-hidden">
+                  <div className="relative h-48 bg-gray-200 overflow-hidden flex-shrink-0">
                     <img 
                       src={location.images[0]} 
                       alt={location.name}
@@ -330,13 +342,14 @@ export default function LocationsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="h-48 bg-gray-100 flex items-center justify-center">
+                  <div className="h-48 bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-12 w-12 text-gray-400" />
                   </div>
                 )}
                 
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-2">
+                <div className="p-6 flex flex-col flex-grow">
+                  {/* Header with title and badges */}
+                  <div className="flex items-start justify-between mb-3">
                     <h3 className="text-lg font-semibold text-gray-900 flex-1">{location.name}</h3>
                     <div className="flex flex-wrap gap-1 ml-2">
                       {location.is_museum && (
@@ -357,15 +370,41 @@ export default function LocationsPage() {
                     </div>
                   </div>
 
-                  {location.address && (
-                    <p className="text-sm text-gray-600 mb-3">{location.address}</p>
-                  )}
+                  {/* Content section that grows */}
+                  <div className="flex-grow space-y-2 mb-4">
+                    {location.address && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Address</p>
+                        <p className="text-sm text-gray-700">{location.address}</p>
+                      </div>
+                    )}
 
-                  {location.description && (
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-2">{location.description}</p>
-                  )}
+                    {(location.latitude && location.longitude) && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Coordinates</p>
+                        <p className="text-sm text-gray-700 font-mono">
+                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    )}
 
-                  <div className="flex space-x-2">
+                    {location.category && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Category</p>
+                        <p className="text-sm text-gray-700">{location.category}</p>
+                      </div>
+                    )}
+
+                    {location.description && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Description</p>
+                        <p className="text-sm text-gray-700 line-clamp-2">{location.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Buttons pinned to bottom */}
+                  <div className="flex space-x-2 mt-auto">
                     <button
                       onClick={(e) => handleEditClick(e, location.id)}
                       className="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
@@ -383,6 +422,63 @@ export default function LocationsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Map View */}
+        {showMapView && (
+          <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
+            <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '600px' }}>
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                style={{ border: 0 }}
+                src={`https://www.google.com/maps/embed/v1/view?key=YOUR_GOOGLE_MAPS_API_KEY&center=${
+                  filteredLocations.length > 0 && filteredLocations[0].latitude && filteredLocations[0].longitude
+                    ? `${filteredLocations[0].latitude},${filteredLocations[0].longitude}`
+                    : '39.8283,-98.5795' // Center of USA as fallback
+                }&zoom=10`}
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            {/* Map markers list */}
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                Locations with Coordinates ({filteredLocations.filter(loc => loc.latitude && loc.longitude).length})
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                {filteredLocations.filter(loc => loc.latitude && loc.longitude).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No locations with coordinates yet. Add coordinates to locations to see them on the map.
+                  </p>
+                ) : (
+                  filteredLocations.filter(loc => loc.latitude && loc.longitude).map((location) => (
+                    <div
+                      key={location.id}
+                      className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
+                      onClick={() => router.push(`/dashboard/locations/${location.id}`)}
+                    >
+                      <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
+                        <p className="text-xs text-gray-600 truncate">{location.address}</p>
+                        <p className="text-xs text-gray-500 font-mono">
+                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            <p className="mt-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded p-3">
+              <strong>📍 Map Setup:</strong> To enable an interactive map with markers, you'll need to add a Google Maps API key. 
+              For now, this shows a static embedded map. The list below shows all locations with coordinates.
+            </p>
           </div>
         )}
       </div>

@@ -41,18 +41,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if slug already exists
-    const { data: existingTenant } = await supabaseAdmin
-      .from('tenants')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-
-    if (existingTenant) {
-      return NextResponse.json(
-        { error: 'An organization with this name already exists. Please choose a different name.' },
-        { status: 409 }
-      )
+    // Check if slug already exists, if so, add a number
+    let finalSlug = slug
+    let slugCounter = 1
+    
+    while (true) {
+      const { data: existingTenant } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('slug', finalSlug)
+        .single()
+      
+      if (!existingTenant) {
+        // Slug is available
+        break
+      }
+      
+      // Slug exists, try with number suffix
+      slugCounter++
+      finalSlug = `${slug}-${slugCounter}`
     }
 
     // Check if email already exists
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest) {
       .from('tenants')
       .insert({
         name: organizationName,
-        slug,
+        slug: finalSlug,
         state,
         active: true,
         subscription_status: 'inactive',

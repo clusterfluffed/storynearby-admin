@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
           <Link href="/" className="inline-block mb-4">
             <Image 
               src="/logo.png" 
-              alt="StoryNearby" 
+              alt="History Nearby" 
               width={200} 
               height={50}
               priority

@@ -235,6 +235,63 @@ export default function LocationsPage() {
           </div>
         </div>
 
+        {/* Map View - Shows above the list when toggled */}
+        {showMapView && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
+            <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '600px' }}>
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                style={{ border: 0 }}
+                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${
+                  filteredLocations.length > 0 && filteredLocations[0].latitude && filteredLocations[0].longitude
+                    ? `${filteredLocations[0].latitude},${filteredLocations[0].longitude}`
+                    : '39.8283,-98.5795'
+                }&zoom=10`}
+                allowFullScreen
+              ></iframe>
+            </div>
+            
+            {/* Map markers list */}
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                Locations with Coordinates ({filteredLocations.filter(loc => loc.latitude && loc.longitude).length})
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                {filteredLocations.filter(loc => loc.latitude && loc.longitude).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No locations with coordinates yet. Add coordinates to locations to see them on the map.
+                  </p>
+                ) : (
+                  filteredLocations.filter(loc => loc.latitude && loc.longitude).map((location) => (
+                    <div
+                      key={location.id}
+                      className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
+                      onClick={() => router.push(`/dashboard/locations/${location.id}`)}
+                    >
+                      <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
+                        <p className="text-xs text-gray-600 truncate">{location.address}</p>
+                        <p className="text-xs text-gray-500 font-mono">
+                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            <p className="mt-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded p-3">
+              <strong>📍 Map Setup:</strong> To enable an interactive map with markers, you'll need to add a Google Maps API key. 
+              For now, this shows a static embedded map. The list below shows all locations with coordinates.
+            </p>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
@@ -428,63 +485,6 @@ export default function LocationsPage() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Map View */}
-        {showMapView && (
-          <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
-            <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '600px' }}>
-              <iframe
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                style={{ border: 0 }}
-                src={`https://www.google.com/maps/embed/v1/view?key=YOUR_GOOGLE_MAPS_API_KEY&center=${
-                  filteredLocations.length > 0 && filteredLocations[0].latitude && filteredLocations[0].longitude
-                    ? `${filteredLocations[0].latitude},${filteredLocations[0].longitude}`
-                    : '39.8283,-98.5795' // Center of USA as fallback
-                }&zoom=10`}
-                allowFullScreen
-              ></iframe>
-            </div>
-            
-            {/* Map markers list */}
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Locations with Coordinates ({filteredLocations.filter(loc => loc.latitude && loc.longitude).length})
-              </h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                {filteredLocations.filter(loc => loc.latitude && loc.longitude).length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    No locations with coordinates yet. Add coordinates to locations to see them on the map.
-                  </p>
-                ) : (
-                  filteredLocations.filter(loc => loc.latitude && loc.longitude).map((location) => (
-                    <div
-                      key={location.id}
-                      className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
-                      onClick={() => router.push(`/dashboard/locations/${location.id}`)}
-                    >
-                      <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
-                        <p className="text-xs text-gray-600 truncate">{location.address}</p>
-                        <p className="text-xs text-gray-500 font-mono">
-                          {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-            
-            <p className="mt-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded p-3">
-              <strong>📍 Map Setup:</strong> To enable an interactive map with markers, you'll need to add a Google Maps API key. 
-              For now, this shows a static embedded map. The list below shows all locations with coordinates.
-            </p>
           </div>
         )}
       </div>

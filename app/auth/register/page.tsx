@@ -148,7 +148,7 @@ export default function RegisterPage() {
           <Link href="/" className="inline-block mb-4">
             <Image 
               src="/logo.png" 
-              alt="StoryNearby" 
+              alt="History Nearby" 
               width={200} 
               height={50}
               className="h-10 w-auto mx-auto"
@@ -156,7 +156,7 @@ export default function RegisterPage() {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
           <p className="text-gray-600 mb-2">
-            Welcome to StoryNearby! We've sent a confirmation email to <strong>{formData.email}</strong>
+            Welcome to History Nearby! We've sent a confirmation email to <strong>{formData.email}</strong>
           </p>
           <p className="text-gray-600 mb-6">
             Please check your inbox and verify your email address to complete your registration.
@@ -190,7 +190,7 @@ export default function RegisterPage() {
           <Link href="/" className="inline-block mb-4">
             <Image 
               src="/logo.png" 
-              alt="StoryNearby" 
+              alt="History Nearby" 
               width={200} 
               height={50}
               priority
@@ -199,7 +199,7 @@ export default function RegisterPage() {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Create Your Account</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Join StoryNearby and share your local history with the community
+            Join History Nearby and share your local history with the community
           </p>
         </div>
 

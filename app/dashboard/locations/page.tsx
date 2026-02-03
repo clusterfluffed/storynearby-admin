@@ -1,61 +1,28 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube } from 'lucide-react'
+import { MapPin, Edit2, Plus, Search, Trash2, Map } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
 
-const LOCATION_CATEGORIES = [
-  'Landmark',
-  'Historic Building',
-  'Battlefield',
-  'Museum',
-  'Monument',
-  'Cemetery',
-  'Archaeological Site',
-  'Historic District',
-  'Religious Site',
-  'Cultural Center',
-  'Other'
-]
-
-export default function NewLocationPage() {
+export default function LocationsPage() {
   const router = useRouter()
-  const [saving, setSaving] = useState(false)
-  const [uploadingImages, setUploadingImages] = useState(false)
-  const [compressing, setCompressing] = useState(false)
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [tenantId, setTenantId] = useState<string | null>(null)
-  
+  const [locations, setLocations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [featuredFilter, setFeaturedFilter] = useState('all')
+  const [tenantName, setTenantName] = useState('')
+  const [userRole, setUserRole] = useState('')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
+  const [showMapView, setShowMapView] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
-  const markerRef = useRef<any>(null)
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    address: '',
-    lat: '',
-    lng: '',
-    category: '',
-    active: true,
-    is_museum: false,
-    museum_hours: '',
-    youtube_url: '',
-    facebook_url: '',
-    instagram_url: '',
-    website_url: '',
-  })
-
-  const [imageFiles, setImageFiles] = useState<File[]>([])
-  const [imagePreviews, setImagePreviews] = useState<string[]>([])
-
-  // Get tenant ID
   useEffect(() => {
-    async function getTenant() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/auth/signin')
@@ -64,30 +31,167 @@ export default function NewLocationPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('tenant_id')
+        .select(`
+          tenant_id,
+          role,
+          tenants (
+            name,
+            subscription_status
+          )
+        `)
         .eq('id', user.id)
         .single()
 
-      if (profile?.tenant_id) {
-        setTenantId(profile.tenant_id)
+      console.log('Profile data:', profile)
+
+      if (profile) {
+        setUserRole(profile.role || '')
+        
+        // Check if tenants data exists and extract name and subscription status
+        if (profile.tenants && typeof profile.tenants === 'object') {
+          const name = (profile.tenants as any).name
+          const status = (profile.tenants as any).subscription_status
+          console.log('Tenant name from join:', name)
+          console.log('Subscription status:', status)
+          setTenantName(name || '')
+          setSubscriptionStatus(status || 'inactive')
+        } else {
+          // Fallback: fetch tenant directly by ID
+          console.log('Fetching tenant by ID:', profile.tenant_id)
+          if (profile.tenant_id) {
+            const { data: tenant } = await supabase
+              .from('tenants')
+              .select('name, subscription_status')
+              .eq('id', profile.tenant_id)
+              .single()
+            
+            if (tenant) {
+              console.log('Tenant name from direct fetch:', tenant.name)
+              console.log('Subscription status from direct fetch:', tenant.subscription_status)
+              setTenantName(tenant.name || '')
+              setSubscriptionStatus(tenant.subscription_status || 'inactive')
+            }
+          }
+        }
       }
+
+      // Fetch locations filtered by user's tenant_id
+      if (!profile || !profile.tenant_id) {
+        console.error('No profile or tenant_id found')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('tenant_id', profile.tenant_id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading locations:', error)
+      } else {
+        setLocations(data || [])
+      }
+      
+      setLoading(false)
     }
-    getTenant()
+
+    loadData()
   }, [router])
 
-  // Initialize Google Maps
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/auth/signin')
+  }
+
+  const handleDelete = async (e: React.MouseEvent, locationId: string, locationName: string) => {
+    e.stopPropagation()
+    
+    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId)
+
+      if (error) {
+        alert('Error deleting location: ' + error.message)
+        return
+      }
+
+      // Refresh the locations list
+      setLocations(locations.filter(loc => loc.id !== locationId))
+    } catch (err) {
+      alert('Failed to delete location')
+      console.error(err)
+    }
+  }
+
+  const handleTileClick = (locationId: string, e: React.MouseEvent) => {
+    // Don't navigate if clicking the edit button or delete button
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
+  const handleEditClick = (e: React.MouseEvent, locationId: string) => {
+    e.stopPropagation()
+    router.push(`/dashboard/locations/${locationId}`)
+  }
+
+  const filteredLocations = locations?.filter(location => {
+    const matchesSearch = !searchTerm || 
+      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      location.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      location.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && location.active) ||
+      (statusFilter === 'inactive' && !location.active)
+    
+    const matchesFeatured = featuredFilter === 'all' ||
+      (featuredFilter === 'featured' && location.featured) ||
+      (featuredFilter === 'not-featured' && !location.featured)
+    
+    return matchesSearch && matchesStatus && matchesFeatured
+  })
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+    setFeaturedFilter('all')
+  }
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || featuredFilter !== 'all'
+
+  // Initialize Google Maps when map view is toggled
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!showMapView || !mapRef.current) return
 
     const initMap = () => {
-      const lat = parseFloat(formData.lat) || 39.8283
-      const lng = parseFloat(formData.lng) || -98.5795
-      const hasCoords = formData.lat && formData.lng
+      const locationsWithCoords = filteredLocations.filter(loc => loc.lat && loc.lng)
+      
+      if (locationsWithCoords.length === 0) {
+        if (mapRef.current) {
+          mapRef.current.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-50"><p class="text-gray-500 text-center py-8">No locations with coordinates to display</p></div>'
+        }
+        return
+      }
+
+      const center = { 
+        lat: locationsWithCoords[0].lat, 
+        lng: locationsWithCoords[0].lng 
+      }
 
       // @ts-ignore
       const map = new google.maps.Map(mapRef.current, {
-        zoom: hasCoords ? 14 : 4,
-        center: { lat, lng },
+        zoom: locationsWithCoords.length === 1 ? 14 : 10,
+        center: center,
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
@@ -96,46 +200,45 @@ export default function NewLocationPage() {
       googleMapRef.current = map
 
       // @ts-ignore
-      const marker = new google.maps.Marker({
-        position: { lat, lng },
-        map: map,
-        draggable: true,
-        title: 'New Location',
+      const bounds = new google.maps.LatLngBounds()
+
+      locationsWithCoords.forEach((location) => {
+        // @ts-ignore
+        const marker = new google.maps.Marker({
+          position: { lat: location.lat, lng: location.lng },
+          map: map,
+          title: location.name,
+        })
+
+        // Build info window content with image and clickable link
+        const hasImage = location.images && location.images.length > 0
+        const imageHtml = hasImage 
+          ? `<img src="${location.images[0]}" alt="${location.name}" style="width: 200px; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" />`
+          : ''
+        
+        const infoContent = `
+          <div style="padding: 8px; max-width: 220px; cursor: pointer;" onclick="window.location.href='/dashboard/locations/${location.id}'">
+            ${imageHtml}
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #1f2937;">${location.name}</div>
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">${location.address || ''}</div>
+            <div style="font-size: 11px; color: #2563eb; text-decoration: underline;">Click to view details →</div>
+          </div>
+        `
+
+        // @ts-ignore
+        const infoWindow = new google.maps.InfoWindow({
+          content: infoContent
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+
+        bounds.extend(marker.position)
       })
 
-      markerRef.current = marker
-
-      // Update coordinates when marker is dragged
-      marker.addListener('dragend', () => {
-        const position = marker.getPosition()
-        if (position) {
-          setFormData(prev => ({
-            ...prev,
-            lat: position.lat().toFixed(6),
-            lng: position.lng().toFixed(6)
-          }))
-        }
-      })
-
-      // Try to get user's location
-      if (navigator.geolocation && !hasCoords) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLat = position.coords.latitude
-            const userLng = position.coords.longitude
-            map.setCenter({ lat: userLat, lng: userLng })
-            map.setZoom(12)
-            marker.setPosition({ lat: userLat, lng: userLng })
-            setFormData(prev => ({
-              ...prev,
-              lat: userLat.toFixed(6),
-              lng: userLng.toFixed(6)
-            }))
-          },
-          (error) => {
-            console.log('Geolocation error:', error)
-          }
-        )
+      if (locationsWithCoords.length > 1) {
+        map.fitBounds(bounds)
       }
     }
 
@@ -151,496 +254,316 @@ export default function NewLocationPage() {
     } else {
       initMap()
     }
-  }, [])
-
-  // Update marker position when coordinates change
-  useEffect(() => {
-    if (markerRef.current && formData.lat && formData.lng) {
-      const lat = parseFloat(formData.lat)
-      const lng = parseFloat(formData.lng)
-      if (!isNaN(lat) && !isNaN(lng)) {
-        markerRef.current.setPosition({ lat, lng })
-        googleMapRef.current?.setCenter({ lat, lng })
-      }
-    }
-  }, [formData.lat, formData.lng])
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
-    setCompressing(true)
-
-    try {
-      const compressedFiles: File[] = []
-      
-      for (const file of files) {
-        const options = {
-          maxSizeMB: 1,
-          maxWidthOrHeight: 1920,
-          useWebWorker: true
-        }
-        
-        const compressedFile = await imageCompression(file, options)
-        compressedFiles.push(compressedFile)
-      }
-
-      setImageFiles([...imageFiles, ...compressedFiles])
-      
-      const previews = await Promise.all(
-        compressedFiles.map(file => {
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.readAsDataURL(file)
-          })
-        })
-      )
-      
-      setImagePreviews([...imagePreviews, ...previews])
-    } catch (err) {
-      console.error('Error compressing images:', err)
-      alert('Error processing images')
-    } finally {
-      setCompressing(false)
-    }
-  }
-
-  const removeImage = (index: number) => {
-    setImageFiles(imageFiles.filter((_, i) => i !== index))
-    setImagePreviews(imagePreviews.filter((_, i) => i !== index))
-  }
-
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-  }
-
-  const handleDrop = (index: number) => {
-    if (draggedIndex === null) return
-
-    const newFiles = [...imageFiles]
-    const newPreviews = [...imagePreviews]
-    
-    const draggedFile = newFiles[draggedIndex]
-    const draggedPreview = newPreviews[draggedIndex]
-    
-    newFiles.splice(draggedIndex, 1)
-    newPreviews.splice(draggedIndex, 1)
-    
-    newFiles.splice(index, 0, draggedFile)
-    newPreviews.splice(index, 0, draggedPreview)
-    
-    setImageFiles(newFiles)
-    setImagePreviews(newPreviews)
-    setDraggedIndex(null)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.name) {
-      alert('Please enter a location name')
-      return
-    }
-
-    if (!tenantId) {
-      alert('Unable to determine your organization. Please try again.')
-      return
-    }
-
-    setSaving(true)
-
-    try {
-      // Create location first to get ID
-      const { data: location, error: locationError } = await supabase
-        .from('locations')
-        .insert({
-          tenant_id: tenantId,
-          name: formData.name,
-          description: formData.description,
-          address: formData.address,
-          lat: formData.lat ? parseFloat(formData.lat) : null,
-          lng: formData.lng ? parseFloat(formData.lng) : null,
-          category: formData.category || null,
-          active: formData.active,
-          is_museum: formData.is_museum,
-          museum_hours: formData.is_museum ? formData.museum_hours : null,
-          youtube_url: formData.youtube_url || null,
-          facebook_url: formData.facebook_url || null,
-          instagram_url: formData.instagram_url || null,
-          website_url: formData.website_url || null,
-          images: [],
-        })
-        .select()
-        .single()
-
-      if (locationError) throw locationError
-
-      // Upload images if any
-      let imageUrls: string[] = []
-      if (imageFiles.length > 0) {
-        setUploadingImages(true)
-        
-        for (const file of imageFiles) {
-          const fileExt = file.name.split('.').pop()
-          const fileName = `${Math.random()}.${fileExt}`
-          const filePath = `${location.id}/${fileName}`
-
-          const { error: uploadError } = await supabase.storage
-            .from('images')
-            .upload(filePath, file)
-
-          if (uploadError) {
-            console.error('Upload error:', uploadError)
-            throw uploadError
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('images')
-            .getPublicUrl(filePath)
-
-          imageUrls.push(publicUrl)
-        }
-
-        // Update location with image URLs
-        const { error: updateError } = await supabase
-          .from('locations')
-          .update({ images: imageUrls })
-          .eq('id', location.id)
-
-        if (updateError) throw updateError
-        
-        setUploadingImages(false)
-      }
-
-      router.push('/dashboard/locations')
-    } catch (err: any) {
-      console.error('Error creating location:', err)
-      alert('Error creating location: ' + err.message)
-      setSaving(false)
-      setUploadingImages(false)
-    }
-  }
+  }, [showMapView, filteredLocations])
 
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNav activeTab="locations" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <Link href="/dashboard/locations" className="text-blue-600 hover:underline mb-2 inline-block">
-            ← Back to Locations
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
+        {tenantName && (
+          <div className="mb-4">
+            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
+          </div>
+        )}
+        
+        {/* Subscription Warning Banner - Only shows when confirmed inactive */}
+        {!loading && subscriptionStatus === 'inactive' && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-md">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-4 flex-1">
+                <h3 className="text-lg font-bold text-red-800 mb-2">
+                  ⚠️ Subscription Required
+                </h3>
+                <p className="text-red-700 mb-3">
+                  Your locations are currently <strong>hidden from the mobile app</strong>. Community members cannot discover your historical sites until you activate a subscription.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/dashboard/subscription"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                  >
+                    Subscribe Now - Start 14-Day Free Trial
+                  </Link>
+                  <Link
+                    href="/dashboard/account"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-white text-red-700 font-semibold rounded-lg border-2 border-red-300 hover:bg-red-50 transition-colors"
+                  >
+                    View Account Details
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowMapView(!showMapView)}
+              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <Map className="h-5 w-5 mr-2" />
+              {showMapView ? 'List View' : 'Map View'}
+            </button>
+            <Link 
+              href="/dashboard/locations/new"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Location
+            </Link>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select a category</option>
-                  {LOCATION_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center space-x-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.active}
-                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Active</span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_museum}
-                    onChange={(e) => setFormData({ ...formData, is_museum: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Is Museum</span>
-                </label>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {formData.is_museum && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Museum Hours
-                  </label>
-                  <textarea
-                    value={formData.museum_hours}
-                    onChange={(e) => setFormData({ ...formData, museum_hours: e.target.value })}
-                    rows={3}
-                    placeholder="e.g., Monday-Friday: 9AM-5PM, Saturday: 10AM-4PM, Sunday: Closed"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Social Links */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Social Media & Website</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Globe className="h-4 w-4 inline mr-1" />
-                  Website URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.website_url}
-                  onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
-                  placeholder="https://example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Facebook className="h-4 w-4 inline mr-1" />
-                  Facebook URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.facebook_url}
-                  onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
-                  placeholder="https://facebook.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Instagram className="h-4 w-4 inline mr-1" />
-                  Instagram URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.instagram_url}
-                  onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
-                  placeholder="https://instagram.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Youtube className="h-4 w-4 inline mr-1" />
-                  YouTube URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.youtube_url}
-                  onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
-                  placeholder="https://youtube.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Coordinates & Map */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              <MapPin className="h-5 w-5 inline mr-2" />
-              Location Coordinates
-            </h2>
+        {/* Map View - Shows above the list when toggled */}
+        {showMapView && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Latitude
-                </label>
-                <input
-                  type="text"
-                  value={formData.lat}
-                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-                  placeholder="39.123456"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
+            {/* Google Maps Container */}
+            <div 
+              ref={mapRef}
+              className="rounded-lg overflow-hidden bg-gray-100" 
+              style={{ height: '600px', width: '100%' }}
+            />
+            
+            {/* Map markers list */}
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                Locations ({filteredLocations.filter(loc => loc.lat && loc.lng).length})
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                {filteredLocations.filter(loc => loc.lat && loc.lng).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No locations with coordinates yet. Add coordinates to locations to see them on the map.
+                  </p>
+                ) : (
+                  filteredLocations.filter(loc => loc.lat && loc.lng).map((location) => (
+                    <div
+                      key={location.id}
+                      className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
+                      onClick={() => router.push(`/dashboard/locations/${location.id}`)}
+                    >
+                      <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
+                        <p className="text-xs text-gray-600 truncate">{location.address}</p>
+                        <p className="text-xs text-gray-500 font-mono">
+                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
+            </div>
+          </div>
+        )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Longitude
-                </label>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
-                  value={formData.lng}
-                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-                  placeholder="-98.123456"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by name, address, or description..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <p className="text-sm text-gray-600 mb-2">
-                Drag the pin to set the location. The map will center on your current location by default.
-              </p>
-              <div 
-                ref={mapRef}
-                className="w-full h-96 rounded-lg bg-gray-100"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Featured</label>
+              <select
+                value={featuredFilter}
+                onChange={(e) => setFeaturedFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Locations</option>
+                <option value="featured">Featured</option>
+                <option value="not-featured">Not Featured</option>
+              </select>
             </div>
           </div>
 
-          {/* Images */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Images</h2>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Images
-              </label>
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">
-                      {compressing ? 'Compressing images...' : 'Click to upload or drag and drop'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 10MB (will be compressed)</p>
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={compressing}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+          {hasActiveFilters && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Showing {filteredLocations.length} of {locations.length} locations
+              </p>
+              <button
+                onClick={clearFilters}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Clear filters
+              </button>
             </div>
+          )}
+        </div>
 
-            {imagePreviews.length > 0 && (
-              <div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Drag images to reorder. First image will be the cover photo.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {imagePreviews.map((preview, index) => (
-                    <div
-                      key={index}
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(index)}
-                      className="relative group cursor-move"
-                    >
-                      {index === 0 && (
-                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded z-10">
-                          Cover
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 z-10">
-                        <GripVertical className="h-5 w-5 text-white drop-shadow" />
-                      </div>
-                      <img
-                        src={preview}
-                        alt={`Upload ${index + 1}`}
-                        className="w-full h-40 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute bottom-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+            <p className="mt-4 text-gray-600">Loading locations...</p>
+          </div>
+        ) : filteredLocations.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            {hasActiveFilters ? (
+              <>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No matching locations</h3>
+                <p className="text-gray-600 mb-4">Try adjusting your filters</p>
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No locations yet</h3>
+                <p className="text-gray-600 mb-4">Get started by adding your first location</p>
+                <Link
+                  href="/dashboard/locations/new"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Add Location
+                </Link>
+              </>
             )}
           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredLocations.map((location) => (
+              <div 
+                key={location.id} 
+                onClick={(e) => handleTileClick(location.id, e)}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+              >
+                {location.images && location.images.length > 0 ? (
+                  <div className="relative h-48 bg-gray-200 overflow-hidden flex-shrink-0">
+                    <img 
+                      src={location.images[0]} 
+                      alt={location.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {location.images.length > 1 && (
+                      <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                        +{location.images.length - 1} more
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-48 bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-12 w-12 text-gray-400" />
+                  </div>
+                )}
+                
+                <div className="p-6 flex flex-col flex-grow">
+                  {/* Header with title and badges */}
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 flex-1">{location.name}</h3>
+                    <div className="flex flex-wrap gap-1 ml-2">
+                      {location.is_museum && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          Museum
+                        </span>
+                      )}
+                      {location.featured && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Featured
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        location.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {location.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-4">
-            <Link
-              href="/dashboard/locations"
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={saving || uploadingImages || compressing}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
-            >
-              {saving || uploadingImages ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {uploadingImages ? 'Uploading Images...' : 'Creating...'}
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5 mr-2" />
-                  Create Location
-                </>
-              )}
-            </button>
+                  {/* Content section that grows */}
+                  <div className="flex-grow space-y-2 mb-4">
+                    {location.address && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Address</p>
+                        <p className="text-sm text-gray-700">{location.address}</p>
+                      </div>
+                    )}
+
+                    {(location.lat && location.lng) && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Coordinates</p>
+                        <p className="text-sm text-gray-700 font-mono">
+                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                        </p>
+                      </div>
+                    )}
+
+                    {location.category && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Category</p>
+                        <p className="text-sm text-gray-700">{location.category}</p>
+                      </div>
+                    )}
+
+                    {location.description && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Description</p>
+                        <p className="text-sm text-gray-700 line-clamp-2">{location.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Buttons pinned to bottom */}
+                  <div className="flex space-x-2 mt-auto">
+                    <button
+                      onClick={(e) => handleEditClick(e, location.id)}
+                      className="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, location.id, location.name)}
+                      className="inline-flex justify-center items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </form>
+        )}
       </div>
     </div>
   )

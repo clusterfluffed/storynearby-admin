@@ -50,7 +50,7 @@ export default function AdminNav({ activeTab }: AdminNavProps) {
             <Link href="/dashboard/locations" className="flex-shrink-0 flex items-center">
               <Image 
                 src="/logo.png" 
-                alt="StoryNearby" 
+                alt="History Nearby" 
                 width={150} 
                 height={38}
                 priority

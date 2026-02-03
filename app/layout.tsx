@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from './providers'
+import Providers from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'History Nearby',
-  description: 'Help historical societies share local history with their communities',
+  description: 'Help historical organizations share local history with their communities',
 }
 
 export default function RootLayout({

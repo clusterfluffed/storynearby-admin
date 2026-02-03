@@ -9,16 +9,15 @@ import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
 const LOCATION_CATEGORIES = [
-  'Landmark',
-  'Historic Building',
-  'Battlefield',
-  'Museum',
-  'Monument',
-  'Cemetery',
   'Archaeological Site',
-  'Historic District',
-  'Religious Site',
+  'Battlefield',
+  'Cemetery',
   'Cultural Center',
+  'Historic Building',
+  'Landmark',
+  'Monument',
+  'Museum',
+  'Religious Site',
   'Other'
 ]
 

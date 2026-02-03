@@ -1,25 +1,22 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'StoryNearby Admin',
-  description: 'Historical Society Content Management System',
+  title: 'History Nearby',
+  description: 'Help historical organizations share local history with their communities',
 }
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.node
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

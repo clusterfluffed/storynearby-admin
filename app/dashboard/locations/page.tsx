@@ -74,6 +74,12 @@ export default function LocationsPage() {
       }
 
       // Fetch locations filtered by user's tenant_id
+      if (!profile || !profile.tenant_id) {
+        console.error('No profile or tenant_id found')
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('locations')
         .select('*')

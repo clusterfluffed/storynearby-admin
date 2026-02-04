@@ -515,6 +515,7 @@ export default function LocationDetailPage() {
       category: formData.category,
       active: formData.active,
       is_museum: formData.is_museum,
+      open_to_public: formData.open_to_public,
       youtube_url: formData.youtube_url,
       facebook_url: formData.facebook_url,
       instagram_url: formData.instagram_url,

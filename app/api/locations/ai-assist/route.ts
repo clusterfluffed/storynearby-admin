@@ -73,7 +73,7 @@ Location to research: ${locationQuery}
 
 Please search the web to find accurate information about this historical location, then provide:
 
-1. **Full Description** (300-400 words): A comprehensive, engaging description including:
+1. **Full Description** (200-500 words): A comprehensive, engaging description including:
    - Historical significance and why it matters
    - Key historical events or facts
    - Architectural or natural features (if applicable)

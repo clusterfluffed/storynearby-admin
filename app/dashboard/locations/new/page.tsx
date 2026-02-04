@@ -56,6 +56,7 @@ export default function NewLocationPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
+  const [hours, setHours] = useState<MuseumHours | null>(null)
   const [geocoding, setGeocoding] = useState(false)
   const [aiAssisting, setAiAssisting] = useState(false)
   const [showAiDialog, setShowAiDialog] = useState(false)
@@ -79,6 +80,7 @@ export default function NewLocationPage() {
     category: '',
     active: true,
     is_museum: false,
+    open_to_public: false,
     youtube_url: '',
     facebook_url: '',
     instagram_url: '',
@@ -92,6 +94,13 @@ export default function NewLocationPage() {
     setFormData({ ...formData, is_museum: checked })
     if (checked && !museumHours) {
       setMuseumHours(defaultHours)
+    }
+  }
+
+  const handleHoursToggle = (checked: boolean) => {
+    setFormData({ ...formData, open_to_public: checked })
+    if (checked && !hours) {
+      setHours(defaultHours)
     }
   }
 
@@ -233,6 +242,19 @@ export default function NewLocationPage() {
       ...museumHours,
       [day]: {
         ...museumHours[day],
+        [field]: value,
+        ...(field === 'closed' && value === true ? { open: null, close: null } : {})
+      }
+    })
+  }
+
+  const handlePublicHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
+    if (!hours) return
+    
+    setHours({
+      ...hours,
+      [day]: {
+        ...hours[day],
         [field]: value,
         ...(field === 'closed' && value === true ? { open: null, close: null } : {})
       }
@@ -460,6 +482,8 @@ export default function NewLocationPage() {
           active: formData.active,
           is_museum: formData.is_museum,
           museum_hours: formData.is_museum ? museumHours : null,
+          open_to_public: formData.open_to_public,
+          hours: formData.open_to_public ? hours : null,
           youtube_url: formData.youtube_url || null,
           facebook_url: formData.facebook_url || null,
           instagram_url: formData.instagram_url || null,
@@ -526,20 +550,7 @@ export default function NewLocationPage() {
           <Link href="/dashboard/locations" className="text-blue-600 hover:underline mb-2 inline-block">
             ← Back to Locations
           </Link>
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
-            <button
-              type="button"
-              onClick={() => setShowAiDialog(true)}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Sparkles className="h-5 w-5 mr-2" />
-              AI Assist
-            </button>
-          </div>
-          <p className="mt-2 text-sm text-gray-600">
-            Use AI Assist to automatically research and populate location details
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -722,7 +733,17 @@ export default function NewLocationPage() {
 
               {/* 2. Basic Information */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiDialog(true)}
+                    className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1.5" />
+                    AI Assist
+                  </button>
+                </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -773,6 +794,16 @@ export default function NewLocationPage() {
                       />
                       <span className="ml-2 text-sm text-gray-700">Is Museum</span>
                     </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.open_to_public}
+                        onChange={(e) => handleHoursToggle(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Open to Public</span>
+                    </label>
                   </div>
 
                   <div>
@@ -782,7 +813,7 @@ export default function NewLocationPage() {
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={4}
+                      rows={10}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -823,6 +854,53 @@ export default function NewLocationPage() {
                                   type="checkbox"
                                   checked={museumHours[dayKey].closed}
                                   onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
+                                  title="Closed"
+                                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.open_to_public && hours && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Hours
+                      </label>
+                      <div className="space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayKey = day as keyof MuseumHours
+                          return (
+                            <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
+                              <div className="col-span-2">
+                                <span className="font-medium text-gray-700 capitalize">{day.slice(0,3)}</span>
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="time"
+                                  value={hours[dayKey].open || ''}
+                                  onChange={(e) => handlePublicHoursChange(dayKey, 'open', e.target.value)}
+                                  disabled={hours[dayKey].closed}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="time"
+                                  value={hours[dayKey].close || ''}
+                                  onChange={(e) => handlePublicHoursChange(dayKey, 'close', e.target.value)}
+                                  disabled={hours[dayKey].closed}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={hours[dayKey].closed}
+                                  onChange={(e) => handlePublicHoursChange(dayKey, 'closed', e.target.checked)}
                                   title="Closed"
                                   className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                                 />
@@ -981,7 +1059,7 @@ export default function NewLocationPage() {
             </div>
 
             {/* RIGHT COLUMN - Map */}
-            <div className="lg:sticky lg:top-8 lg:self-start">
+            <div className="lg:sticky lg:top-8 lg:self-start space-y-4">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Interactive Map</h2>
                 <p className="text-sm text-gray-600 mb-3">
@@ -993,34 +1071,43 @@ export default function NewLocationPage() {
                   style={{ height: '600px' }}
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="mt-6 flex justify-end space-x-4">
-            <Link
-              href="/dashboard/locations"
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={saving || uploadingImages || compressing}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
-            >
-              {saving || uploadingImages ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {uploadingImages ? 'Uploading...' : 'Creating...'}
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5 mr-2" />
-                  Create Location
-                </>
-              )}
-            </button>
+              {/* Action Buttons - Sticky below map */}
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <div className="flex justify-end space-x-4">
+                  <Link
+                    href="/dashboard/locations"
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 inline-flex items-center"
+                  >
+                    Cancel
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      const form = e.currentTarget.closest('form')
+                      if (form) {
+                        form.requestSubmit()
+                      }
+                    }}
+                    disabled={saving || uploadingImages || compressing}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
+                  >
+                    {saving || uploadingImages ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {uploadingImages ? 'Uploading...' : 'Creating...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5 mr-2" />
+                        Create Location
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </form>
       </div>

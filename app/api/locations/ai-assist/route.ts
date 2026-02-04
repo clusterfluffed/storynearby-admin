@@ -1,23 +1,46 @@
 // app/api/locations/ai-assist/route.ts
 
 import Anthropic from '@anthropic-ai/sdk'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!
 })
 
+// Use service role key to bypass RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
+
 export async function POST(request: Request) {
   try {
-    // Check authentication
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Get Authorization header
+    const authHeader = request.headers.get('authorization')
+    
+    if (!authHeader) {
+      console.error('No authorization header')
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 })
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+
+    // Verify the user with their token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.error('Auth error:', authError)
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
+
+    console.log('Authenticated user:', user.id)
 
     // Check rate limit (20 requests per day per user)
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
@@ -53,17 +76,17 @@ export async function POST(request: Request) {
 
     console.log('AI Assist request:', locationQuery)
 
-    // Call Claude without tools (simpler approach)
+    // Call Claude
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
       messages: [{
         role: 'user',
-        content: `You are a historical research assistant with access to web search capabilities. Please research the following historical location and provide accurate, detailed information.
+        content: `You are a historical research assistant with access to comprehensive historical knowledge. Please research the following historical location and provide accurate, detailed information.
 
 Location to research: ${locationQuery}
 
-Please provide comprehensive information about this location in the following JSON format. Use your knowledge and reasoning to provide accurate information:
+Please provide comprehensive information about this location in the following JSON format. Use your extensive knowledge to provide accurate information:
 
 {
   "description": "A 300-400 word comprehensive description including: historical significance, key events, architectural/natural features, current status, visiting information, and interesting facts",
@@ -75,8 +98,8 @@ Please provide comprehensive information about this location in the following JS
 }
 
 Important guidelines:
-- Provide accurate, factual information only
-- If you're unsure about coordinates, use the approximate location of the city/area
+- Provide accurate, factual information based on your knowledge
+- If you're unsure about exact coordinates, use the approximate location of the city/area mentioned
 - Write the description in an engaging, educational style appropriate for a local history app
 - Include specific dates, names, and historical context where relevant
 - Focus on what makes this location historically significant
@@ -136,6 +159,8 @@ Return ONLY the JSON object, no additional text before or after.`
           count: 1 
         })
     }
+
+    console.log('AI Assist successful for user:', user.id)
 
     // Return structured data
     return NextResponse.json({

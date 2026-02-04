@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Trash2, Edit2, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube } from 'lucide-react'
+import { MapPin, Save, Trash2, Edit2, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -61,6 +61,7 @@ export default function LocationDetailPage() {
   const [compressing, setCompressing] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
   
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
@@ -116,6 +117,52 @@ export default function LocationDetailPage() {
     setFormData({ ...formData, is_museum: checked })
     if (checked && !museumHours) {
       setMuseumHours(defaultHours)
+    }
+  }
+
+  const handleFindOnMap = async () => {
+    if (!formData.address) {
+      alert('Please enter an address first')
+      return
+    }
+
+    setGeocoding(true)
+
+    try {
+      // @ts-ignore
+      const geocoder = new google.maps.Geocoder()
+      
+      geocoder.geocode({ address: formData.address }, (results: any, status: any) => {
+        // @ts-ignore
+        if (status === google.maps.GeocoderStatus.OK && results[0]) {
+          const location = results[0].geometry.location
+          const lat = location.lat()
+          const lng = location.lng()
+
+          // Update form data
+          setFormData(prev => ({
+            ...prev,
+            lat: lat.toFixed(6),
+            lng: lng.toFixed(6)
+          }))
+
+          // Update map and marker
+          if (googleMapRef.current && markerRef.current) {
+            googleMapRef.current.setCenter({ lat, lng })
+            googleMapRef.current.setZoom(16)
+            markerRef.current.setPosition({ lat, lng })
+          }
+
+          setGeocoding(false)
+        } else {
+          setGeocoding(false)
+          alert('Address not found. Please check the address and try again, or set the location manually on the map.')
+        }
+      })
+    } catch (err) {
+      console.error('Geocoding error:', err)
+      setGeocoding(false)
+      alert('Error finding address. Please try again or set the location manually.')
     }
   }
 
@@ -785,19 +832,52 @@ export default function LocationDetailPage() {
                   <MapPin className="h-5 w-5 inline mr-2" />
                   Location & Address
                 </h2>
+                
+                {/* Instructions */}
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 font-medium mb-2">📍 How to set the location:</p>
+                  <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                    <li>• <strong>Option 1:</strong> Enter the address below and click "Find on Map"</li>
+                    <li>• <strong>Option 2:</strong> Drag the pin on the map to the exact location</li>
+                    <li>• <strong>Option 3:</strong> Enter latitude/longitude coordinates manually</li>
+                  </ul>
+                </div>
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Address
                     </label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      disabled={!editMode}
-                      placeholder="123 Main St, City, State ZIP"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        disabled={!editMode}
+                        placeholder="123 Main St, City, State ZIP"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
+                      />
+                      {editMode && (
+                        <button
+                          type="button"
+                          onClick={handleFindOnMap}
+                          disabled={!formData.address || geocoding}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center whitespace-nowrap"
+                        >
+                          {geocoding ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Searching...
+                            </>
+                          ) : (
+                            <>
+                              <Search className="h-4 w-4 mr-2" />
+                              Find on Map
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -829,14 +909,6 @@ export default function LocationDetailPage() {
                       />
                     </div>
                   </div>
-                  
-                  {editMode && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800">
-                        <strong>💡 Required:</strong> Drag the pin on the map to set coordinates automatically, or enter them manually.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 

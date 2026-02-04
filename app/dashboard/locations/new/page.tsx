@@ -153,11 +153,15 @@ export default function NewLocationPage() {
       // Get session token
       const { data: { session } } = await supabase.auth.getSession()
       
+      console.log('Session check:', session ? 'Has session' : 'No session')
+      
       if (!session) {
         alert('Please sign in to use AI Assist')
         setAiAssisting(false)
         return
       }
+
+      console.log('Making AI Assist request with token')
 
       const response = await fetch('/api/locations/ai-assist', {
         method: 'POST',
@@ -172,11 +176,16 @@ export default function NewLocationPage() {
         })
       })
 
+      console.log('Response status:', response.status)
+
       const result = await response.json()
+      console.log('Response data:', result)
 
       if (!response.ok) {
         if (response.status === 429) {
           alert(result.error || 'Daily limit reached (20 requests per day)')
+        } else if (response.status === 401) {
+          alert('Authentication failed. Please try logging out and back in.')
         } else {
           alert(result.error || 'Error generating location data')
         }

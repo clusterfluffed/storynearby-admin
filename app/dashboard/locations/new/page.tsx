@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search } from 'lucide-react'
+import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -57,6 +57,14 @@ export default function NewLocationPage() {
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
   const [geocoding, setGeocoding] = useState(false)
+  const [aiAssisting, setAiAssisting] = useState(false)
+  const [showAiDialog, setShowAiDialog] = useState(false)
+  const [aiForm, setAiForm] = useState({
+    locationName: '',
+    city: '',
+    state: ''
+  })
+  const [remainingAiRequests, setRemainingAiRequests] = useState<number | null>(null)
   
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
@@ -130,6 +138,70 @@ export default function NewLocationPage() {
       console.error('Geocoding error:', err)
       setGeocoding(false)
       alert('Error finding address. Please try again or set the location manually.')
+    }
+  }
+
+  const handleAiAssist = async () => {
+    if (!aiForm.locationName || !aiForm.state) {
+      alert('Please enter at least the location name and state')
+      return
+    }
+
+    setAiAssisting(true)
+
+    try {
+      const response = await fetch('/api/locations/ai-assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationName: aiForm.locationName,
+          city: aiForm.city,
+          state: aiForm.state
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          alert(result.error || 'Daily limit reached (20 requests per day)')
+        } else {
+          alert(result.error || 'Error generating location data')
+        }
+        setAiAssisting(false)
+        return
+      }
+
+      // Populate form with AI data
+      setFormData(prev => ({
+        ...prev,
+        name: result.data.name,
+        description: result.data.description,
+        address: result.data.address,
+        lat: result.data.lat,
+        lng: result.data.lng,
+        category: result.data.category,
+        website_url: result.data.website_url
+      }))
+
+      // Update map
+      if (result.data.lat && result.data.lng && googleMapRef.current && markerRef.current) {
+        const lat = parseFloat(result.data.lat)
+        const lng = parseFloat(result.data.lng)
+        googleMapRef.current.setCenter({ lat, lng })
+        googleMapRef.current.setZoom(16)
+        markerRef.current.setPosition({ lat, lng })
+      }
+
+      setRemainingAiRequests(result.remainingRequests)
+      setShowAiDialog(false)
+      setAiForm({ locationName: '', city: '', state: '' })
+      alert('Location data generated! Please review and edit as needed before saving.')
+    } catch (err) {
+      console.error('AI Assist error:', err)
+      alert('Error generating location data. Please try again.')
+    } finally {
+      setAiAssisting(false)
     }
   }
 
@@ -433,10 +505,124 @@ export default function NewLocationPage() {
           <Link href="/dashboard/locations" className="text-blue-600 hover:underline mb-2 inline-block">
             ← Back to Locations
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
+            <button
+              type="button"
+              onClick={() => setShowAiDialog(true)}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Sparkles className="h-5 w-5 mr-2" />
+              AI Assist
+            </button>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            Use AI Assist to automatically research and populate location details
+          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* AI Assist Dialog */}
+          {showAiDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                  <Sparkles className="h-5 w-5 inline mr-2 text-purple-600" />
+                  AI-Powered Location Research
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Enter information about the historical location. AI will research and generate a complete profile including description, address, and coordinates.
+                </p>
+                
+                {remainingAiRequests !== null && (
+                  <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      📊 <strong>{remainingAiRequests}</strong> AI requests remaining today
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Historical Place Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={aiForm.locationName}
+                      onChange={(e) => setAiForm({ ...aiForm, locationName: e.target.value })}
+                      placeholder="e.g., Old Courthouse, Lincoln Memorial"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City or County
+                    </label>
+                    <input
+                      type="text"
+                      value={aiForm.city}
+                      onChange={(e) => setAiForm({ ...aiForm, city: e.target.value })}
+                      placeholder="e.g., Hamilton County, Springfield"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      value={aiForm.state}
+                      onChange={(e) => setAiForm({ ...aiForm, state: e.target.value })}
+                      placeholder="e.g., Indiana, IL, Ohio"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAiDialog(false)
+                      setAiForm({ locationName: '', city: '', state: '' })
+                    }}
+                    disabled={aiAssisting}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAiAssist}
+                    disabled={!aiForm.locationName || !aiForm.state || aiAssisting}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 inline-flex items-center"
+                  >
+                    {aiAssisting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Researching...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Generate Profile
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <p className="mt-4 text-xs text-gray-500">
+                  💡 Limit: 20 AI-generated profiles per day
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 2-Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Trash2, Edit2, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search } from 'lucide-react'
+import { MapPin, Save, Trash2, Edit2, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -60,7 +60,7 @@ export default function LocationDetailPage() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const [compressing, setCompressing] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
+  const [hours, setHours] = useState<MuseumHours | null>(null)
   const [geocoding, setGeocoding] = useState(false)
   
   const mapRef = useRef<HTMLDivElement>(null)
@@ -76,6 +76,7 @@ export default function LocationDetailPage() {
     category: '',
     active: true,
     is_museum: false,
+    open_to_public: false,
     youtube_url: '',
     facebook_url: '',
     instagram_url: '',
@@ -113,10 +114,10 @@ export default function LocationDetailPage() {
     }
   }
 
-  const handleMuseumToggle = (checked: boolean) => {
-    setFormData({ ...formData, is_museum: checked })
-    if (checked && !museumHours) {
-      setMuseumHours(defaultHours)
+  const handleHoursToggle = (checked: boolean) => {
+    setFormData({ ...formData, open_to_public: checked })
+    if (checked && !hours) {
+      setHours(defaultHours)
     }
   }
 
@@ -167,12 +168,12 @@ export default function LocationDetailPage() {
   }
 
   const handleHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
-    if (!museumHours) return
+    if (!hours) return
     
-    setMuseumHours({
-      ...museumHours,
+    setHours({
+      ...hours,
       [day]: {
-        ...museumHours[day],
+        ...hours[day],
         [field]: value,
         ...(field === 'closed' && value === true ? { open: null, close: null } : {})
       }
@@ -202,14 +203,15 @@ export default function LocationDetailPage() {
         category: data.category || '',
         active: data.active ?? true,
         is_museum: data.is_museum || false,
+        open_to_public: data.open_to_public || false,
         youtube_url: data.youtube_url || '',
         facebook_url: data.facebook_url || '',
         instagram_url: data.instagram_url || '',
         website_url: data.website_url || '',
       })
 
-      if (data.museum_hours) {
-        setMuseumHours(data.museum_hours)
+      if (data.hours) {
+        setHours(data.hours)
       }
 
       if (data.images) {
@@ -452,7 +454,8 @@ export default function LocationDetailPage() {
           category: formData.category || null,
           active: formData.active,
           is_museum: formData.is_museum,
-          museum_hours: formData.is_museum ? museumHours : null,
+          open_to_public: formData.open_to_public,
+          hours: formData.open_to_public ? hours : null,
           youtube_url: formData.youtube_url || null,
           facebook_url: formData.facebook_url || null,
           instagram_url: formData.instagram_url || null,
@@ -706,7 +709,20 @@ export default function LocationDetailPage() {
 
               {/* 2. Basic Information */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
+                  {editMode && (
+                    <button
+                      type="button"
+                      onClick={() => alert('AI Assist is only available when creating new locations')}
+                      className="inline-flex items-center px-3 py-1.5 bg-gray-400 text-white text-sm rounded-lg cursor-not-allowed opacity-50"
+                      disabled
+                    >
+                      <Sparkles className="h-4 w-4 mr-1.5" />
+                      AI Assist
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -755,11 +771,22 @@ export default function LocationDetailPage() {
                       <input
                         type="checkbox"
                         checked={formData.is_museum}
-                        onChange={(e) => handleMuseumToggle(e.target.checked)}
+                        onChange={(e) => setFormData({ ...formData, is_museum: e.target.checked })}
                         disabled={!editMode}
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
                       />
                       <span className="ml-2 text-sm text-gray-700">Is Museum</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.open_to_public}
+                        onChange={(e) => handleHoursToggle(e.target.checked)}
+                        disabled={!editMode}
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Open to Public</span>
                     </label>
                   </div>
 
@@ -771,55 +798,66 @@ export default function LocationDetailPage() {
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       disabled={!editMode}
-                      rows={4}
+                      rows={10}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
 
-                  {formData.is_museum && museumHours && (
+                  {formData.open_to_public && hours && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Museum Hours
+                        Hours
                       </label>
-                      <div className="space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                          const dayKey = day as keyof MuseumHours
-                          return (
-                            <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
-                              <div className="col-span-2">
-                                <span className="font-medium text-gray-700 capitalize">{day.slice(0,3)}</span>
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        {/* Column Headers */}
+                        <div className="grid grid-cols-7 gap-2 items-center text-xs font-semibold text-gray-600 mb-2 pb-2 border-b border-gray-300">
+                          <div className="col-span-2">Day</div>
+                          <div className="col-span-4 text-center">Hours of Operation</div>
+                          <div className="col-span-1 text-center">Closed</div>
+                        </div>
+                        
+                        {/* Hours rows */}
+                        <div className="space-y-2">
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                            const dayKey = day as keyof MuseumHours
+                            return (
+                              <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
+                                <div className="col-span-2">
+                                  <span className="font-medium text-gray-700 capitalize">{day}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <input
+                                    type="time"
+                                    value={hours[dayKey].open || ''}
+                                    onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
+                                    disabled={!editMode || hours[dayKey].closed}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    placeholder="Start"
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <input
+                                    type="time"
+                                    value={hours[dayKey].close || ''}
+                                    onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
+                                    disabled={!editMode || hours[dayKey].closed}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    placeholder="End"
+                                  />
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={hours[dayKey].closed}
+                                    onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
+                                    disabled={!editMode}
+                                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
+                                  />
+                                </div>
                               </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={museumHours[dayKey].open || ''}
-                                  onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
-                                  disabled={!editMode || museumHours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={museumHours[dayKey].close || ''}
-                                  onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
-                                  disabled={!editMode || museumHours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-1 flex justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={museumHours[dayKey].closed}
-                                  onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
-                                  disabled={!editMode}
-                                  title="Closed"
-                                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50"
-                                />
-                              </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -980,7 +1018,7 @@ export default function LocationDetailPage() {
             </div>
 
             {/* RIGHT COLUMN - Map */}
-            <div className="lg:sticky lg:top-8 lg:self-start">
+            <div className="lg:sticky lg:top-8 lg:self-start space-y-4">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   {editMode ? 'Interactive Map' : 'Location Map'}
@@ -1015,39 +1053,48 @@ export default function LocationDetailPage() {
                   </div>
                 )}
               </div>
+
+              {/* Action Buttons - Sticky below map */}
+              {editMode && (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <div className="flex justify-end space-x-4">
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={saving}
+                      className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 inline-flex items-center"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        const form = e.currentTarget.closest('form')
+                        if (form) {
+                          form.requestSubmit()
+                        }
+                      }}
+                      disabled={saving || uploadingImages || compressing}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
+                    >
+                      {saving || uploadingImages ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          {uploadingImages ? 'Uploading...' : 'Saving...'}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-5 w-5 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Action Buttons */}
-          {editMode && (
-            <div className="mt-6 flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={saving}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving || uploadingImages || compressing}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
-              >
-                {saving || uploadingImages ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {uploadingImages ? 'Uploading...' : 'Saving...'}
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-5 w-5 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </form>
       </div>
     </div>

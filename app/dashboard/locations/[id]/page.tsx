@@ -178,7 +178,7 @@ export default function LocationDetailPage() {
 
   // Initialize Google Maps
   useEffect(() => {
-    if (!editMode || !mapRef.current) return
+    if (!mapRef.current) return
 
     const initMap = () => {
       const lat = parseFloat(formData.lat) || 39.8283
@@ -192,6 +192,7 @@ export default function LocationDetailPage() {
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
+        draggable: editMode, // Only draggable in edit mode
       })
 
       googleMapRef.current = map
@@ -200,41 +201,45 @@ export default function LocationDetailPage() {
       const marker = new google.maps.Marker({
         position: { lat, lng },
         map: map,
-        draggable: true,
+        draggable: editMode, // Only draggable in edit mode
         title: formData.name || 'Location',
       })
 
       markerRef.current = marker
 
-      marker.addListener('dragend', () => {
-        const position = marker.getPosition()
-        if (position) {
-          setFormData(prev => ({
-            ...prev,
-            lat: position.lat().toFixed(6),
-            lng: position.lng().toFixed(6)
-          }))
-        }
-      })
-
-      if (navigator.geolocation && !hasCoords) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLat = position.coords.latitude
-            const userLng = position.coords.longitude
-            map.setCenter({ lat: userLat, lng: userLng })
-            map.setZoom(12)
-            marker.setPosition({ lat: userLat, lng: userLng })
+      // Only add dragend listener in edit mode
+      if (editMode) {
+        marker.addListener('dragend', () => {
+          const position = marker.getPosition()
+          if (position) {
             setFormData(prev => ({
               ...prev,
-              lat: userLat.toFixed(6),
-              lng: userLng.toFixed(6)
+              lat: position.lat().toFixed(6),
+              lng: position.lng().toFixed(6)
             }))
-          },
-          (error) => {
-            console.log('Geolocation error:', error)
           }
-        )
+        })
+
+        // Try to get user's location only in edit mode if no coords
+        if (navigator.geolocation && !hasCoords) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const userLat = position.coords.latitude
+              const userLng = position.coords.longitude
+              map.setCenter({ lat: userLat, lng: userLng })
+              map.setZoom(12)
+              marker.setPosition({ lat: userLat, lng: userLng })
+              setFormData(prev => ({
+                ...prev,
+                lat: userLat.toFixed(6),
+                lng: userLng.toFixed(6)
+              }))
+            },
+            (error) => {
+              console.log('Geolocation error:', error)
+            }
+          )
+        }
       }
     }
 
@@ -249,7 +254,7 @@ export default function LocationDetailPage() {
     } else {
       initMap()
     }
-  }, [editMode])
+  }, [editMode, formData.name]) // Re-initialize when editMode changes
 
   useEffect(() => {
     if (markerRef.current && formData.lat && formData.lng) {
@@ -343,6 +348,11 @@ export default function LocationDetailPage() {
     
     if (!formData.name) {
       alert('Please enter a location name')
+      return
+    }
+
+    if (!formData.lat || !formData.lng) {
+      alert('Please set the location coordinates by dragging the pin on the map or entering them manually')
       return
     }
 
@@ -785,6 +795,7 @@ export default function LocationDetailPage() {
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       disabled={!editMode}
+                      placeholder="123 Main St, City, State ZIP"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
@@ -792,7 +803,7 @@ export default function LocationDetailPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Latitude
+                        Latitude *
                       </label>
                       <input
                         type="text"
@@ -806,7 +817,7 @@ export default function LocationDetailPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Longitude
+                        Longitude *
                       </label>
                       <input
                         type="text"
@@ -818,6 +829,14 @@ export default function LocationDetailPage() {
                       />
                     </div>
                   </div>
+                  
+                  {editMode && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>💡 Required:</strong> Drag the pin on the map to set coordinates automatically, or enter them manually.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -831,11 +850,11 @@ export default function LocationDetailPage() {
                       Website URL
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={formData.website_url}
                       onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
                       disabled={!editMode}
-                      placeholder="https://example.com"
+                      placeholder="example.com or https://example.com"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
@@ -846,11 +865,11 @@ export default function LocationDetailPage() {
                       Facebook URL
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={formData.facebook_url}
                       onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
                       disabled={!editMode}
-                      placeholder="https://facebook.com/..."
+                      placeholder="facebook.com/yourpage"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
@@ -861,11 +880,11 @@ export default function LocationDetailPage() {
                       Instagram URL
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={formData.instagram_url}
                       onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
                       disabled={!editMode}
-                      placeholder="https://instagram.com/..."
+                      placeholder="instagram.com/yourpage"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
@@ -876,11 +895,11 @@ export default function LocationDetailPage() {
                       YouTube URL
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={formData.youtube_url}
                       onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
                       disabled={!editMode}
-                      placeholder="https://youtube.com/..."
+                      placeholder="youtube.com/@yourchannel"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
@@ -891,12 +910,21 @@ export default function LocationDetailPage() {
             {/* RIGHT COLUMN - Map */}
             <div className="lg:sticky lg:top-8 lg:self-start">
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Interactive Map</h2>
-                {editMode ? (
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  {editMode ? 'Interactive Map' : 'Location Map'}
+                </h2>
+                {formData.lat && formData.lng ? (
                   <div>
-                    <p className="text-sm text-gray-600 mb-3">
-                      Drag the pin to set the location. Coordinates will update automatically.
-                    </p>
+                    {editMode && (
+                      <p className="text-sm text-gray-600 mb-3">
+                        Drag the pin to update the location. Coordinates will update automatically.
+                      </p>
+                    )}
+                    {!editMode && (
+                      <p className="text-sm text-gray-600 mb-3">
+                        Click "Edit Location" to move the pin and update coordinates.
+                      </p>
+                    )}
                     <div 
                       ref={mapRef}
                       className="w-full rounded-lg bg-gray-100"
@@ -906,7 +934,12 @@ export default function LocationDetailPage() {
                 ) : (
                   <div className="text-center py-12 bg-gray-50 rounded-lg">
                     <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Click "Edit Location" to view the interactive map</p>
+                    <p className="text-gray-600 mb-2">No coordinates set</p>
+                    <p className="text-sm text-gray-500">
+                      {editMode 
+                        ? 'Drag the pin on the map or enter coordinates manually'
+                        : 'Click "Edit Location" to add map coordinates'}
+                    </p>
                   </div>
                 )}
               </div>

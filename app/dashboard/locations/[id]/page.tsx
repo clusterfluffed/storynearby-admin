@@ -712,7 +712,8 @@ export default function LocationDetailPage() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
-                  /* {editMode && (
+            {/* 
+                  {editMode && (
                     <button
                       type="button"
                       onClick={() => alert('AI Assist is only available when creating new locations')}
@@ -722,7 +723,8 @@ export default function LocationDetailPage() {
                       <Sparkles className="h-4 w-4 mr-1.5" />
                       AI Assist
                     </button>
-                  )} */
+                    )} 
+              */}
                 </div>
                 <div className="space-y-4">
                   <div>

@@ -150,9 +150,21 @@ export default function NewLocationPage() {
     setAiAssisting(true)
 
     try {
+      // Get session token
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        alert('Please sign in to use AI Assist')
+        setAiAssisting(false)
+        return
+      }
+
       const response = await fetch('/api/locations/ai-assist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           locationName: aiForm.locationName,
           city: aiForm.city,

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube } from 'lucide-react'
+import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -35,16 +35,17 @@ const defaultHours: MuseumHours = {
 }
 
 const LOCATION_CATEGORIES = [
-  'Archaeological Site',
-  'Battlefield',
-  'Cemetery',
-  'Cultural Center',
-  'Historic Building',
   'Landmark',
-  'Monument',
+  'Historic Building',
+  'Battlefield',
   'Museum',
+  'Monument',
+  'Cemetery',
+  'Archaeological Site',
+  'Historic District',
   'Religious Site',
-  'Other' 
+  'Cultural Center',
+  'Other'
 ]
 
 export default function NewLocationPage() {
@@ -55,6 +56,7 @@ export default function NewLocationPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
   
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
@@ -82,6 +84,52 @@ export default function NewLocationPage() {
     setFormData({ ...formData, is_museum: checked })
     if (checked && !museumHours) {
       setMuseumHours(defaultHours)
+    }
+  }
+
+  const handleFindOnMap = async () => {
+    if (!formData.address) {
+      alert('Please enter an address first')
+      return
+    }
+
+    setGeocoding(true)
+
+    try {
+      // @ts-ignore
+      const geocoder = new google.maps.Geocoder()
+      
+      geocoder.geocode({ address: formData.address }, (results: any, status: any) => {
+        // @ts-ignore
+        if (status === google.maps.GeocoderStatus.OK && results[0]) {
+          const location = results[0].geometry.location
+          const lat = location.lat()
+          const lng = location.lng()
+
+          // Update form data
+          setFormData(prev => ({
+            ...prev,
+            lat: lat.toFixed(6),
+            lng: lng.toFixed(6)
+          }))
+
+          // Update map and marker
+          if (googleMapRef.current && markerRef.current) {
+            googleMapRef.current.setCenter({ lat, lng })
+            googleMapRef.current.setZoom(16)
+            markerRef.current.setPosition({ lat, lng })
+          }
+
+          setGeocoding(false)
+        } else {
+          setGeocoding(false)
+          alert('Address not found. Please check the address and try again, or set the location manually on the map.')
+        }
+      })
+    } catch (err) {
+      console.error('Geocoding error:', err)
+      setGeocoding(false)
+      alert('Error finding address. Please try again or set the location manually.')
     }
   }
 
@@ -292,6 +340,11 @@ export default function NewLocationPage() {
       return
     }
 
+    if (!formData.lat || !formData.lng) {
+      alert('Please set the location coordinates by dragging the pin on the map, using "Find on Map", or entering them manually')
+      return
+    }
+
     if (!tenantId) {
       alert('Unable to determine your organization. Please try again.')
       return
@@ -383,314 +436,361 @@ export default function NewLocationPage() {
           <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select a category</option>
-                  {LOCATION_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center space-x-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.active}
-                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Active</span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_museum}
-                    onChange={(e) => handleMuseumToggle(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Is Museum</span>
-                </label>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {formData.is_museum && museumHours && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Museum Hours
+        <form onSubmit={handleSubmit}>
+          {/* 2-Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* LEFT COLUMN - Form Fields */}
+            <div className="space-y-6">
+              
+              {/* 1. Images */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Images</h2>
+                
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Images
                   </label>
-                  <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    {(Object.keys(museumHours) as Array<keyof MuseumHours>).map((day) => (
-                      <div key={day} className="grid grid-cols-6 gap-4 items-center">
-                        <div className="col-span-1">
-                          <span className="text-sm font-medium text-gray-700 capitalize">{day}</span>
-                        </div>
-                        <div className="col-span-2">
-                          <input
-                            type="time"
-                            value={museumHours[day].open || ''}
-                            onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
-                            disabled={museumHours[day].closed}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <input
-                            type="time"
-                            value={museumHours[day].close || ''}
-                            onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
-                            disabled={museumHours[day].closed}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                          />
-                        </div>
-                        <div className="col-span-1 flex justify-center">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={museumHours[day].closed}
-                              onChange={(e) => handleHoursChange(day, 'closed', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-600">Closed</span>
-                          </label>
-                        </div>
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="h-10 w-10 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-600">
+                          {compressing ? 'Compressing...' : 'Click to upload'}
+                        </p>
                       </div>
-                    ))}
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={compressing}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Social Links */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Social Media & Website</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Globe className="h-4 w-4 inline mr-1" />
-                  Website URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.website_url}
-                  onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
-                  placeholder="https://example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Facebook className="h-4 w-4 inline mr-1" />
-                  Facebook URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.facebook_url}
-                  onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
-                  placeholder="https://facebook.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Instagram className="h-4 w-4 inline mr-1" />
-                  Instagram URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.instagram_url}
-                  onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
-                  placeholder="https://instagram.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Youtube className="h-4 w-4 inline mr-1" />
-                  YouTube URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.youtube_url}
-                  onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
-                  placeholder="https://youtube.com/..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Coordinates & Map */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              <MapPin className="h-5 w-5 inline mr-2" />
-              Location Address & Coordinates
-            </h2>
-            <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Latitude
-                </label>
-                <input
-                  type="text"
-                  value={formData.lat}
-                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-                  placeholder="39.123456"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Longitude
-                </label>
-                <input
-                  type="text"
-                  value={formData.lng}
-                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-                  placeholder="-98.123456"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-600 mb-2">
-                Drag the pin to set the location. The map will center on your current location by default.
-              </p>
-              <div 
-                ref={mapRef}
-                className="w-full h-96 rounded-lg bg-gray-100"
-              />
-            </div>
-          </div>
-
-          {/* Images */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Images</h2>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Images
-              </label>
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">
-                      {compressing ? 'Compressing images...' : 'Click to upload or drag and drop'}
+                {imagePreviews.length > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Drag to reorder. First image = cover.
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 10MB (will be compressed)</p>
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={compressing}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {imagePreviews.length > 0 && (
-              <div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Drag images to reorder. First image will be the cover photo.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {imagePreviews.map((preview, index) => (
-                    <div
-                      key={index}
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(index)}
-                      className="relative group cursor-move"
-                    >
-                      {index === 0 && (
-                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded z-10">
-                          Cover
+                    <div className="grid grid-cols-2 gap-4">
+                      {imagePreviews.map((preview, index) => (
+                        <div
+                          key={index}
+                          draggable
+                          onDragStart={() => handleDragStart(index)}
+                          onDragOver={handleDragOver}
+                          onDrop={() => handleDrop(index)}
+                          className="relative group cursor-move"
+                        >
+                          {index === 0 && (
+                            <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded z-10">
+                              Cover
+                            </div>
+                          )}
+                          <div className="absolute top-2 right-2 z-10">
+                            <GripVertical className="h-5 w-5 text-white drop-shadow" />
+                          </div>
+                          <img
+                            src={preview}
+                            alt={`Upload ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute bottom-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
                         </div>
-                      )}
-                      <div className="absolute top-2 right-2 z-10">
-                        <GripVertical className="h-5 w-5 text-white drop-shadow" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Basic Information */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select a category</option>
+                      {LOCATION_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center space-x-6">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.active}
+                        onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Active</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_museum}
+                        onChange={(e) => handleMuseumToggle(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Is Museum</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {formData.is_museum && museumHours && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Museum Hours
+                      </label>
+                      <div className="space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayKey = day as keyof MuseumHours
+                          return (
+                            <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
+                              <div className="col-span-2">
+                                <span className="font-medium text-gray-700 capitalize">{day.slice(0,3)}</span>
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="time"
+                                  value={museumHours[dayKey].open || ''}
+                                  onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
+                                  disabled={museumHours[dayKey].closed}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="time"
+                                  value={museumHours[dayKey].close || ''}
+                                  onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
+                                  disabled={museumHours[dayKey].closed}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={museumHours[dayKey].closed}
+                                  onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
+                                  title="Closed"
+                                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                      <img
-                        src={preview}
-                        alt={`Upload ${index + 1}`}
-                        className="w-full h-40 object-cover rounded-lg"
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Location & Address */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  <MapPin className="h-5 w-5 inline mr-2" />
+                  Location & Address
+                </h2>
+                
+                {/* Instructions */}
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 font-medium mb-2">📍 How to set the location:</p>
+                  <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                    <li>• <strong>Option 1:</strong> Enter the address below and click "Find on Map"</li>
+                    <li>• <strong>Option 2:</strong> Drag the pin on the map to the exact location</li>
+                    <li>• <strong>Option 3:</strong> Enter latitude/longitude coordinates manually</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Address
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="123 Main St, City, State ZIP"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute bottom-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={handleFindOnMap}
+                        disabled={!formData.address || geocoding}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center whitespace-nowrap"
                       >
-                        <X className="h-4 w-4" />
+                        {geocoding ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 mr-2" />
+                            Find on Map
+                          </>
+                        )}
                       </button>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Latitude *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.lat}
+                        onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
+                        placeholder="39.123456"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Longitude *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.lng}
+                        onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
+                        placeholder="-98.123456"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+
+              {/* 4. Social Media & Website */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Social Media & Website</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Globe className="h-4 w-4 inline mr-1" />
+                      Website URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.website_url}
+                      onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                      placeholder="example.com or https://example.com"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Facebook className="h-4 w-4 inline mr-1" />
+                      Facebook URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.facebook_url}
+                      onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
+                      placeholder="facebook.com/yourpage"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Instagram className="h-4 w-4 inline mr-1" />
+                      Instagram URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.instagram_url}
+                      onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
+                      placeholder="instagram.com/yourpage"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Youtube className="h-4 w-4 inline mr-1" />
+                      YouTube URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.youtube_url}
+                      onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
+                      placeholder="youtube.com/@yourchannel"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN - Map */}
+            <div className="lg:sticky lg:top-8 lg:self-start">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Interactive Map</h2>
+                <p className="text-sm text-gray-600 mb-3">
+                  Drag the pin to set the location. Coordinates will update automatically.
+                </p>
+                <div 
+                  ref={mapRef}
+                  className="w-full rounded-lg bg-gray-100"
+                  style={{ height: '600px' }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-4">
+          <div className="mt-6 flex justify-end space-x-4">
             <Link
               href="/dashboard/locations"
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
@@ -705,7 +805,7 @@ export default function NewLocationPage() {
               {saving || uploadingImages ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {uploadingImages ? 'Uploading Images...' : 'Creating...'}
+                  {uploadingImages ? 'Uploading...' : 'Creating...'}
                 </>
               ) : (
                 <>

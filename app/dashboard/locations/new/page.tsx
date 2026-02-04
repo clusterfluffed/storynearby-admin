@@ -55,7 +55,6 @@ export default function NewLocationPage() {
   const [compressing, setCompressing] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
-  const [museumHours, setMuseumHours] = useState<MuseumHours | null>(null)
   const [hours, setHours] = useState<MuseumHours | null>(null)
   const [geocoding, setGeocoding] = useState(false)
   const [aiAssisting, setAiAssisting] = useState(false)
@@ -89,13 +88,6 @@ export default function NewLocationPage() {
 
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
-
-  const handleMuseumToggle = (checked: boolean) => {
-    setFormData({ ...formData, is_museum: checked })
-    if (checked && !museumHours) {
-      setMuseumHours(defaultHours)
-    }
-  }
 
   const handleHoursToggle = (checked: boolean) => {
     setFormData({ ...formData, open_to_public: checked })
@@ -236,19 +228,6 @@ export default function NewLocationPage() {
   }
 
   const handleHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
-    if (!museumHours) return
-    
-    setMuseumHours({
-      ...museumHours,
-      [day]: {
-        ...museumHours[day],
-        [field]: value,
-        ...(field === 'closed' && value === true ? { open: null, close: null } : {})
-      }
-    })
-  }
-
-  const handlePublicHoursChange = (day: keyof MuseumHours, field: 'open' | 'close' | 'closed', value: string | boolean) => {
     if (!hours) return
     
     setHours({
@@ -481,7 +460,6 @@ export default function NewLocationPage() {
           category: formData.category || null,
           active: formData.active,
           is_museum: formData.is_museum,
-          museum_hours: formData.is_museum ? museumHours : null,
           open_to_public: formData.open_to_public,
           hours: formData.open_to_public ? hours : null,
           youtube_url: formData.youtube_url || null,
@@ -789,7 +767,7 @@ export default function NewLocationPage() {
                       <input
                         type="checkbox"
                         checked={formData.is_museum}
-                        onChange={(e) => handleMuseumToggle(e.target.checked)}
+                        onChange={(e) => setFormData({ ...formData, is_museum: e.target.checked })}
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">Is Museum</span>
@@ -818,96 +796,60 @@ export default function NewLocationPage() {
                     />
                   </div>
 
-                  {formData.is_museum && museumHours && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Museum Hours
-                      </label>
-                      <div className="space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                          const dayKey = day as keyof MuseumHours
-                          return (
-                            <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
-                              <div className="col-span-2">
-                                <span className="font-medium text-gray-700 capitalize">{day.slice(0,3)}</span>
-                              </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={museumHours[dayKey].open || ''}
-                                  onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
-                                  disabled={museumHours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={museumHours[dayKey].close || ''}
-                                  onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
-                                  disabled={museumHours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-1 flex justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={museumHours[dayKey].closed}
-                                  onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
-                                  title="Closed"
-                                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {formData.open_to_public && hours && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
                         Hours
                       </label>
-                      <div className="space-y-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                          const dayKey = day as keyof MuseumHours
-                          return (
-                            <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
-                              <div className="col-span-2">
-                                <span className="font-medium text-gray-700 capitalize">{day.slice(0,3)}</span>
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        {/* Column Headers */}
+                        <div className="grid grid-cols-7 gap-2 items-center text-xs font-semibold text-gray-600 mb-2 pb-2 border-b border-gray-300">
+                          <div className="col-span-2">Day</div>
+                          <div className="col-span-4 text-center">Hours of Operation</div>
+                          <div className="col-span-1 text-center">Closed</div>
+                        </div>
+                        
+                        {/* Hours rows */}
+                        <div className="space-y-2">
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                            const dayKey = day as keyof MuseumHours
+                            return (
+                              <div key={day} className="grid grid-cols-7 gap-2 items-center text-sm">
+                                <div className="col-span-2">
+                                  <span className="font-medium text-gray-700 capitalize">{day}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <input
+                                    type="time"
+                                    value={hours[dayKey].open || ''}
+                                    onChange={(e) => handleHoursChange(dayKey, 'open', e.target.value)}
+                                    disabled={hours[dayKey].closed}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    placeholder="Start"
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <input
+                                    type="time"
+                                    value={hours[dayKey].close || ''}
+                                    onChange={(e) => handleHoursChange(dayKey, 'close', e.target.value)}
+                                    disabled={hours[dayKey].closed}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    placeholder="End"
+                                  />
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={hours[dayKey].closed}
+                                    onChange={(e) => handleHoursChange(dayKey, 'closed', e.target.checked)}
+                                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                  />
+                                </div>
                               </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={hours[dayKey].open || ''}
-                                  onChange={(e) => handlePublicHoursChange(dayKey, 'open', e.target.value)}
-                                  disabled={hours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="time"
-                                  value={hours[dayKey].close || ''}
-                                  onChange={(e) => handlePublicHoursChange(dayKey, 'close', e.target.value)}
-                                  disabled={hours[dayKey].closed}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                />
-                              </div>
-                              <div className="col-span-1 flex justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={hours[dayKey].closed}
-                                  onChange={(e) => handlePublicHoursChange(dayKey, 'closed', e.target.checked)}
-                                  title="Closed"
-                                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                              </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}

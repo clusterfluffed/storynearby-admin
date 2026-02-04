@@ -32,6 +32,7 @@ export type Location = {
   address?: string
   lat: number
   lng: number
+  category?: string
   audio_url?: string
   image_urls?: string[]
   featured: boolean

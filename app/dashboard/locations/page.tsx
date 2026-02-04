@@ -1,567 +1,263 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
-import { MapPin, Edit2, Plus, Search, Trash2, Map } from 'lucide-react'
-import Link from 'next/link'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { supabase, type Location } from '@/lib/supabase'
+import { MapPin, Plus, Edit, Trash2, Filter } from 'lucide-react'
+import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
+
+const LOCATION_CATEGORIES = [
+  'Landmark',
+  'Historic Building',
+  'Battlefield',
+  'Museum',
+  'Monument',
+  'Cemetery',
+  'Archaeological Site',
+  'Historic District',
+  'Religious Site',
+  'Cultural Center',
+  'Other'
+]
 
 export default function LocationsPage() {
   const router = useRouter()
-  const [locations, setLocations] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [featuredFilter, setFeaturedFilter] = useState('all')
-  const [tenantName, setTenantName] = useState('')
-  const [userRole, setUserRole] = useState('')
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
-  const [showMapView, setShowMapView] = useState(false)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const googleMapRef = useRef<any>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
-  useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/signin')
-        return
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select(`
-          tenant_id,
-          role,
-          tenants (
-            name,
-            subscription_status
-          )
-        `)
-        .eq('id', user.id)
-        .single()
-
-      console.log('Profile data:', profile)
-
-      if (profile) {
-        setUserRole(profile.role || '')
-        
-        // Check if tenants data exists and extract name and subscription status
-        if (profile.tenants && typeof profile.tenants === 'object') {
-          const name = (profile.tenants as any).name
-          const status = (profile.tenants as any).subscription_status
-          console.log('Tenant name from join:', name)
-          console.log('Subscription status:', status)
-          setTenantName(name || '')
-          setSubscriptionStatus(status || 'inactive')
-        } else {
-          // Fallback: fetch tenant directly by ID
-          console.log('Fetching tenant by ID:', profile.tenant_id)
-          if (profile.tenant_id) {
-            const { data: tenant } = await supabase
-              .from('tenants')
-              .select('name, subscription_status')
-              .eq('id', profile.tenant_id)
-              .single()
-            
-            if (tenant) {
-              console.log('Tenant name from direct fetch:', tenant.name)
-              console.log('Subscription status from direct fetch:', tenant.subscription_status)
-              setTenantName(tenant.name || '')
-              setSubscriptionStatus(tenant.subscription_status || 'inactive')
-            }
-          }
-        }
-      }
-
-      // Fetch locations filtered by user's tenant_id
-      if (!profile || !profile.tenant_id) {
-        console.error('No profile or tenant_id found')
-        setLoading(false)
-        return
-      }
-
+  const { data: locations, isLoading, refetch } = useQuery({
+    queryKey: ['locations'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('locations')
         .select('*')
-        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error loading locations:', error)
-      } else {
-        setLocations(data || [])
-      }
       
-      setLoading(false)
-    }
-
-    loadData()
-  }, [router])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/auth/signin')
-  }
-
-  const handleDelete = async (e: React.MouseEvent, locationId: string, locationName: string) => {
-    e.stopPropagation()
-    
-    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .delete()
-        .eq('id', locationId)
-
-      if (error) {
-        alert('Error deleting location: ' + error.message)
-        return
-      }
-
-      // Refresh the locations list
-      setLocations(locations.filter(loc => loc.id !== locationId))
-    } catch (err) {
-      alert('Failed to delete location')
-      console.error(err)
-    }
-  }
-
-  const handleTileClick = (locationId: string, e: React.MouseEvent) => {
-    // Don't navigate if clicking the edit button or delete button
-    if ((e.target as HTMLElement).closest('button')) {
-      return
-    }
-    router.push(`/dashboard/locations/${locationId}`)
-  }
-
-  const handleEditClick = (e: React.MouseEvent, locationId: string) => {
-    e.stopPropagation()
-    router.push(`/dashboard/locations/${locationId}`)
-  }
-
-  const filteredLocations = locations?.filter(location => {
-    const matchesSearch = !searchTerm || 
-      location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      location.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      location.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && location.active) ||
-      (statusFilter === 'inactive' && !location.active)
-    
-    const matchesFeatured = featuredFilter === 'all' ||
-      (featuredFilter === 'featured' && location.featured) ||
-      (featuredFilter === 'not-featured' && !location.featured)
-    
-    return matchesSearch && matchesStatus && matchesFeatured
+      if (error) throw error
+      return data as Location[]
+    },
   })
 
-  const clearFilters = () => {
-    setSearchTerm('')
-    setStatusFilter('all')
-    setFeaturedFilter('all')
+  const handleDelete = async (locationId: string) => {
+    if (!confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('locations')
+      .delete()
+      .eq('id', locationId)
+
+    if (error) {
+      alert('Error deleting location: ' + error.message)
+    } else {
+      // Refresh the list
+      refetch()
+    }
   }
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || featuredFilter !== 'all'
-
-  // Initialize Google Maps when map view is toggled
-  useEffect(() => {
-    if (!showMapView || !mapRef.current) return
-
-    const initMap = () => {
-      const locationsWithCoords = filteredLocations.filter(loc => loc.lat && loc.lng)
-      
-      if (locationsWithCoords.length === 0) {
-        if (mapRef.current) {
-          mapRef.current.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-50"><p class="text-gray-500 text-center py-8">No locations with coordinates to display</p></div>'
-        }
-        return
-      }
-
-      const center = { 
-        lat: locationsWithCoords[0].lat, 
-        lng: locationsWithCoords[0].lng 
-      }
-
-      // @ts-ignore
-      const map = new google.maps.Map(mapRef.current, {
-        zoom: locationsWithCoords.length === 1 ? 14 : 10,
-        center: center,
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-      })
-
-      googleMapRef.current = map
-
-      // @ts-ignore
-      const bounds = new google.maps.LatLngBounds()
-
-      locationsWithCoords.forEach((location) => {
-        // @ts-ignore
-        const marker = new google.maps.Marker({
-          position: { lat: location.lat, lng: location.lng },
-          map: map,
-          title: location.name,
-        })
-
-        // Build info window content with image and clickable link
-        const hasImage = location.images && location.images.length > 0
-        const imageHtml = hasImage 
-          ? `<img src="${location.images[0]}" alt="${location.name}" style="width: 200px; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" />`
-          : ''
-        
-        const infoContent = `
-          <div style="padding: 8px; max-width: 220px; cursor: pointer;" onclick="window.location.href='/dashboard/locations/${location.id}'">
-            ${imageHtml}
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #1f2937;">${location.name}</div>
-            <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">${location.address || ''}</div>
-            <div style="font-size: 11px; color: #2563eb; text-decoration: underline;">Click to view details →</div>
-          </div>
-        `
-
-        // @ts-ignore
-        const infoWindow = new google.maps.InfoWindow({
-          content: infoContent
-        })
-
-        marker.addListener('click', () => {
-          infoWindow.open(map, marker)
-        })
-
-        bounds.extend(marker.position)
-      })
-
-      if (locationsWithCoords.length > 1) {
-        map.fitBounds(bounds)
-      }
-    }
-
-    // Load Google Maps script if not already loaded
-    // @ts-ignore
-    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      script.async = true
-      script.defer = true
-      script.onload = initMap
-      document.head.appendChild(script)
-    } else {
-      initMap()
-    }
-  }, [showMapView, filteredLocations])
+  // Filter locations based on selected filters
+  const filteredLocations = locations?.filter(location => {
+    // Status filter
+    if (statusFilter === 'active' && !location.active) return false
+    if (statusFilter === 'inactive' && location.active) return false
+    
+    // Category filter
+    if (categoryFilter !== 'all' && location.category !== categoryFilter) return false
+    
+    return true
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNav activeTab="locations" />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {tenantName && (
-          <div className="mb-4">
-            <h2 className="text-xl text-gray-700">Welcome to {tenantName}</h2>
-          </div>
-        )}
-        
-        {/* Subscription Warning Banner - Only shows when confirmed inactive */}
-        {!loading && subscriptionStatus === 'inactive' && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-md">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-4 flex-1">
-                <h3 className="text-lg font-bold text-red-800 mb-2">
-                  ⚠️ Subscription Required
-                </h3>
-                <p className="text-red-700 mb-3">
-                  Your locations are currently <strong>hidden from the mobile app</strong>. Community members cannot discover your historical sites until you activate a subscription.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/dashboard/subscription"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
-                  >
-                    Subscribe Now - Start 14-Day Free Trial
-                  </Link>
-                  <Link
-                    href="/dashboard/account"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-white text-red-700 font-semibold rounded-lg border-2 border-red-300 hover:bg-red-50 transition-colors"
-                  >
-                    View Account Details
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
-          </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowMapView(!showMapView)}
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              <Map className="h-5 w-5 mr-2" />
-              {showMapView ? 'List View' : 'Map View'}
-            </button>
-            <Link 
-              href="/dashboard/locations/new"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add Location
-            </Link>
-          </div>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Historical Locations</h1>
+          <Link 
+            href="/dashboard/locations/new"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Location
+          </Link>
         </div>
 
-        {/* Map View - Shows above the list when toggled */}
-        {showMapView && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Locations Map</h2>
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex items-center space-x-4">
+            <Filter className="h-5 w-5 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Filters:</span>
             
-            {/* Google Maps Container */}
-            <div 
-              ref={mapRef}
-              className="rounded-lg overflow-hidden bg-gray-100" 
-              style={{ height: '600px', width: '100%' }}
-            />
-            
-            {/* Map markers list */}
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Locations ({filteredLocations.filter(loc => loc.lat && loc.lng).length})
-              </h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                {filteredLocations.filter(loc => loc.lat && loc.lng).length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    No locations with coordinates yet. Add coordinates to locations to see them on the map.
-                  </p>
-                ) : (
-                  filteredLocations.filter(loc => loc.lat && loc.lng).map((location) => (
-                    <div
-                      key={location.id}
-                      className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition-colors"
-                      onClick={() => router.push(`/dashboard/locations/${location.id}`)}
-                    >
-                      <MapPin className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{location.name}</p>
-                        <p className="text-xs text-gray-600 truncate">{location.address}</p>
-                        <p className="text-xs text-gray-500 font-mono">
-                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, address, or description..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
+            {/* Category Filter */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Categories</option>
+              {LOCATION_CATEGORIES.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
+            {/* Results Count */}
+            <span className="text-sm text-gray-600">
+              {filteredLocations?.length || 0} location{filteredLocations?.length !== 1 ? 's' : ''}
+            </span>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Featured</label>
-              <select
-                value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Locations</option>
-                <option value="featured">Featured</option>
-                <option value="not-featured">Not Featured</option>
-              </select>
-            </div>
-          </div>
-
-          {hasActiveFilters && (
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Showing {filteredLocations.length} of {locations.length} locations
-              </p>
+            {/* Clear Filters */}
+            {(statusFilter !== 'all' || categoryFilter !== 'all') && (
               <button
-                onClick={clearFilters}
+                onClick={() => {
+                  setStatusFilter('all')
+                  setCategoryFilter('all')
+                }}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
                 Clear filters
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
             <p className="mt-4 text-gray-600">Loading locations...</p>
           </div>
-        ) : filteredLocations.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            {hasActiveFilters ? (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No matching locations</h3>
-                <p className="text-gray-600 mb-4">Try adjusting your filters</p>
-                <button
-                  onClick={clearFilters}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Clear filters
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No locations yet</h3>
-                <p className="text-gray-600 mb-4">Get started by adding your first location</p>
-                <Link
-                  href="/dashboard/locations/new"
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Add Location
-                </Link>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredLocations.map((location) => (
-              <div 
-                key={location.id} 
-                onClick={(e) => handleTileClick(location.id, e)}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
-              >
-                {location.images && location.images.length > 0 ? (
-                  <div className="relative h-48 bg-gray-200 overflow-hidden flex-shrink-0">
-                    <img 
-                      src={location.images[0]} 
-                      alt={location.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {location.images.length > 1 && (
-                      <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                        +{location.images.length - 1} more
+        ) : filteredLocations && filteredLocations.length > 0 ? (
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Coordinates
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredLocations.map((location) => (
+                  <tr 
+                    key={location.id} 
+                    onClick={() => router.push(`/dashboard/locations/${location.id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <MapPin className="h-5 w-5 text-gray-400 mr-2" />
+                        <div className="text-sm font-medium text-gray-900">{location.name}</div>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="h-48 bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-12 w-12 text-gray-400" />
-                  </div>
-                )}
-                
-                <div className="p-6 flex flex-col flex-grow">
-                  {/* Header with title and badges */}
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1">{location.name}</h3>
-                    <div className="flex flex-wrap gap-1 ml-2">
-                      {location.is_museum && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                          Museum
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {location.category ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {location.category}
                         </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
                       )}
-                      {location.featured && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Featured
-                        </span>
-                      )}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        location.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {location.address || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        location.active 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
                       }`}>
                         {location.active ? 'Active' : 'Inactive'}
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Content section that grows */}
-                  <div className="flex-grow space-y-2 mb-4">
-                    {location.address && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500">Address</p>
-                        <p className="text-sm text-gray-700">{location.address}</p>
-                      </div>
-                    )}
-
-                    {(location.lat && location.lng) && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500">Coordinates</p>
-                        <p className="text-sm text-gray-700 font-mono">
-                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                        </p>
-                      </div>
-                    )}
-
-                    {location.category && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500">Category</p>
-                        <p className="text-sm text-gray-700">{location.category}</p>
-                      </div>
-                    )}
-
-                    {location.description && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500">Description</p>
-                        <p className="text-sm text-gray-700 line-clamp-2">{location.description}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Buttons pinned to bottom */}
-                  <div className="flex space-x-2 mt-auto">
-                    <button
-                      onClick={(e) => handleEditClick(e, location.id)}
-                      className="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                    >
-                      <Edit2 className="h-4 w-4 mr-1" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(e, location.id, location.name)}
-                      className="inline-flex justify-center items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link 
+                        href={`/dashboard/locations/${location.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        <Edit className="h-5 w-5 inline" />
+                      </Link>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(location.id)
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="h-5 w-5 inline" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <MapPin className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              {(statusFilter !== 'all' || categoryFilter !== 'all') 
+                ? 'No locations match your filters' 
+                : 'No locations'}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {(statusFilter !== 'all' || categoryFilter !== 'all')
+                ? 'Try adjusting your filters or add a new location.'
+                : 'Get started by adding a historical location.'}
+            </p>
+            <div className="mt-6">
+              {(statusFilter !== 'all' || categoryFilter !== 'all') ? (
+                <button
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setCategoryFilter('all')
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 mr-3"
+                >
+                  Clear Filters
+                </button>
+              ) : null}
+              <Link
+                href="/dashboard/locations/new"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Add Location
+              </Link>
+            </div>
           </div>
         )}
       </div>

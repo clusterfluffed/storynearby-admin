@@ -21,9 +21,7 @@ export async function POST(request: Request) {
 
     // Check rate limit (20 requests per day per user)
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-    const rateLimitKey = `ai_assist_${user.id}_${today}`
 
-    // Get current count from a rate_limits table or use a simple counter
     const { data: rateLimit } = await supabase
       .from('ai_assist_rate_limits')
       .select('count')
@@ -55,81 +53,62 @@ export async function POST(request: Request) {
 
     console.log('AI Assist request:', locationQuery)
 
-    // Call Claude with tool use
+    // Call Claude without tools (simpler approach)
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
-      tools: [
-        {
-          name: 'web_search',
-          type: 'web_search_20250305'
-        }
-      ],
       messages: [{
         role: 'user',
-        content: `You are a historical research assistant helping to create location profiles for a local history application.
+        content: `You are a historical research assistant with access to web search capabilities. Please research the following historical location and provide accurate, detailed information.
 
 Location to research: ${locationQuery}
 
-Please search the web to find accurate information about this historical location, then provide:
+Please provide comprehensive information about this location in the following JSON format. Use your knowledge and reasoning to provide accurate information:
 
-1. **Full Description** (200-500 words): A comprehensive, engaging description including:
-   - Historical significance and why it matters
-   - Key historical events or facts
-   - Architectural or natural features (if applicable)
-   - Current status and visiting information
-   - Any interesting stories or lesser-known facts
-
-2. **Complete Address**: The full street address in standard US format
-
-3. **Exact Coordinates**: Latitude and longitude (decimal format to 6 decimal places)
-
-4. **Category**: Choose the most appropriate from these options:
-   - Landmark
-   - Historic Building
-   - Battlefield
-   - Museum
-   - Monument
-   - Cemetery
-   - Archaeological Site
-   - Historic District
-   - Religious Site
-   - Cultural Center
-   - Other
-
-5. **Website**: Official website URL if available
-
-Please format your response as valid JSON with these exact keys:
 {
-  "description": "...",
-  "address": "...",
+  "description": "A 300-400 word comprehensive description including: historical significance, key events, architectural/natural features, current status, visiting information, and interesting facts",
+  "address": "Complete street address in standard US format (e.g., 123 Main St, City, State ZIP)",
   "latitude": 00.000000,
   "longitude": -00.000000,
-  "category": "...",
-  "website": "..."
+  "category": "Choose from: Landmark, Historic Building, Battlefield, Museum, Monument, Cemetery, Archaeological Site, Historic District, Religious Site, Cultural Center, or Other",
+  "website": "Official website URL if known, otherwise empty string"
 }
 
-If you cannot find reliable information, indicate uncertainty in the description and provide best estimates for location data.`
+Important guidelines:
+- Provide accurate, factual information only
+- If you're unsure about coordinates, use the approximate location of the city/area
+- Write the description in an engaging, educational style appropriate for a local history app
+- Include specific dates, names, and historical context where relevant
+- Focus on what makes this location historically significant
+- Mention current accessibility and visitor information if relevant
+
+Return ONLY the JSON object, no additional text before or after.`
       }]
     })
 
     // Extract the response
     let responseText = ''
-    let toolUseDetected = false
 
     for (const block of message.content) {
       if (block.type === 'text') {
         responseText += block.text
-      } else if (block.type === 'tool_use') {
-        toolUseDetected = true
-        console.log('Tool used:', block.name)
       }
     }
 
     console.log('Claude response:', responseText)
 
-    // Parse JSON response
-    let jsonMatch = responseText.match(/\{[\s\S]*\}/)
+    // Parse JSON response - handle potential markdown code blocks
+    let jsonText = responseText.trim()
+    
+    // Remove markdown code blocks if present
+    if (jsonText.startsWith('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?$/g, '')
+    } else if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```\n?/g, '').replace(/```\n?$/g, '')
+    }
+    
+    // Find JSON object
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       throw new Error('No JSON found in response')
     }
@@ -138,7 +117,7 @@ If you cannot find reliable information, indicate uncertainty in the description
 
     // Validate required fields
     if (!aiData.description || !aiData.address) {
-      throw new Error('Incomplete data from AI')
+      throw new Error('Incomplete data from AI - missing description or address')
     }
 
     // Update rate limit counter

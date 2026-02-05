@@ -7,13 +7,27 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AdminNav from '@/app/components/AdminNav'
 
+const LOCATION_CATEGORIES = [
+  'Landmark',
+  'Historic Building',
+  'Battlefield',
+  'Museum',
+  'Monument',
+  'Cemetery',
+  'Archaeological Site',
+  'Historic District',
+  'Religious Site',
+  'Cultural Center',
+  'Other'
+]
+
 export default function LocationsPage() {
   const router = useRouter()
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [featuredFilter, setFeaturedFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [tenantName, setTenantName] = useState('')
   const [userRole, setUserRole] = useState('')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
@@ -154,20 +168,19 @@ export default function LocationsPage() {
       (statusFilter === 'active' && location.active) ||
       (statusFilter === 'inactive' && !location.active)
     
-    const matchesFeatured = featuredFilter === 'all' ||
-      (featuredFilter === 'featured' && location.featured) ||
-      (featuredFilter === 'not-featured' && !location.featured)
+    const matchesCategory = categoryFilter === 'all' ||
+      location.category === categoryFilter
     
-    return matchesSearch && matchesStatus && matchesFeatured
+    return matchesSearch && matchesStatus && matchesCategory
   })
 
   const clearFilters = () => {
     setSearchTerm('')
     setStatusFilter('all')
-    setFeaturedFilter('all')
+    setCategoryFilter('all')
   }
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || featuredFilter !== 'all'
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
 
   // Initialize Google Maps when map view is toggled
   useEffect(() => {
@@ -399,15 +412,16 @@ export default function LocationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Featured</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
               <select
-                value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value)}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="all">All Locations</option>
-                <option value="featured">Featured</option>
-                <option value="not-featured">Not Featured</option>
+                <option value="all">All Categories</option>
+                {LOCATION_CATEGORIES.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
               </select>
             </div>
           </div>

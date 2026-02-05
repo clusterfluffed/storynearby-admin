@@ -138,6 +138,7 @@ export default function SignInPage() {
         </div>
 
           {/* Terms */}
+        <div className="text-center mt-4">
           <p className="text-xs text-center text-gray-500">
             By creating an account, you agree to our{' '}
             <Link href="/legal/terms" target="_blank" className="text-blue-600 hover:text-blue-800 underline">

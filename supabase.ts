@@ -38,7 +38,7 @@ export type Location = {
   featured: boolean
   active: boolean
   created_at: string
-}
+} 
 
 export type Bookmark = {
   id: string

@@ -64,8 +64,9 @@ export default function LocationsPage() {
     if (statusFilter === 'active' && !location.active) return false
     if (statusFilter === 'inactive' && location.active) return false
     
-    // Category filter
-    if (categoryFilter !== 'all' && location.category !== categoryFilter) return false
+    // Category filter - use type assertion to access category
+    const loc = location as Location & { category?: string }
+    if (categoryFilter !== 'all' && loc.category !== categoryFilter) return false
     
     return true
   })
@@ -179,9 +180,9 @@ export default function LocationsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {location.category ? (
+                      {(location as any).category ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {location.category}
+                          {(location as any).category}
                         </span>
                       ) : (
                         <span className="text-sm text-gray-400">—</span>

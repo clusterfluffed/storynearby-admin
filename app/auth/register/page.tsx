@@ -337,7 +337,14 @@ export default function RegisterPage() {
 
           {/* Terms */}
           <p className="text-xs text-center text-gray-500">
-            By creating an account, you agree to our Terms of Service and Privacy Policy
+            By creating an account, you agree to our{' '}
+            <Link href="/legal/terms" target="_blank" className="text-blue-600 hover:text-blue-800 underline">
+              Terms of Service
+            </Link>
+            {' '}and{' '}
+            <Link href="/legal/privacy" target="_blank" className="text-blue-600 hover:text-blue-800 underline">
+              Privacy Policy
+            </Link>
           </p>
         </form>
 

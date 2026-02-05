@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Object:</strong> Object to certain processing of your information</li>
             </ul>
             <p className="text-gray-700 mt-3">
-              To exercise these rights, contact us at <a href="mailto:privacy@historynearby.com" className="text-blue-600 hover:text-blue-800">privacy@historynearby.com</a>
+              To exercise these rights, contact us at <a href="mailto:info@historynearbyapp.com" className="text-blue-600 hover:text-blue-800">info@historynearbyapp.com</a>
             </p>
           </section>
 
@@ -165,7 +165,7 @@ export default function PrivacyPolicyPage() {
               If you have questions about this Privacy Policy, please contact us:
             </p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
-              <p className="text-gray-700"><strong>Email:</strong> <a href="mailto:privacy@historynearby.com" className="text-blue-600 hover:text-blue-800">privacy@historynearby.com</a></p>
+              <p className="text-gray-700"><strong>Email:</strong> <a href="mailto:info@historynearbyapp.com" className="text-blue-600 hover:text-blue-800">info@historynearbyapp.com</a></p>
               <p className="text-gray-700"><strong>Mail:</strong> History Nearby, Attn: Privacy Team</p>
             </div>
           </section>

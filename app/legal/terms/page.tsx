@@ -205,7 +205,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">12. Dispute Resolution</h2>
             <p className="text-gray-700 mb-3">
-              If you have a dispute with us, you agree to first contact us at support@historynearby.com to attempt informal resolution.
+              If you have a dispute with us, you agree to first contact us at info@historynearbyapp.com to attempt informal resolution.
             </p>
             <p className="text-gray-700">
               Any unresolved disputes will be resolved through binding arbitration rather than in court, except where prohibited by law.
@@ -227,7 +227,7 @@ export default function TermsOfServicePage() {
               If you have questions about these Terms, please contact us:
             </p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
-              <p className="text-gray-700"><strong>Email:</strong> <a href="mailto:support@historynearby.com" className="text-blue-600 hover:text-blue-800">support@historynearby.com</a></p>
+              <p className="text-gray-700"><strong>Email:</strong> <a href="mailto:info@historynearbyapp.com" className="text-blue-600 hover:text-blue-800">info@historynearbyapp.com</a></p>
               <p className="text-gray-700"><strong>Mail:</strong> History Nearby, Attn: Terms and Conditions</p>
             </div>
           </section>

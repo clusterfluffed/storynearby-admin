@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { supabase, type Location } from '@/lib/supabase'
-import { MapPin, Plus, Edit, Trash2, Filter } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { MapPin, Plus, Edit, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -36,7 +36,7 @@ export default function LocationsPage() {
         .order('created_at', { ascending: false })
       
       if (error) throw error
-      return data as Location[]
+      return data
     },
   })
 
@@ -53,21 +53,15 @@ export default function LocationsPage() {
     if (error) {
       alert('Error deleting location: ' + error.message)
     } else {
-      // Refresh the list
       refetch()
     }
   }
 
-  // Filter locations based on selected filters
-  const filteredLocations = locations?.filter(location => {
-    // Status filter
+  // Filter locations
+  const filteredLocations = locations?.filter((location: any) => {
     if (statusFilter === 'active' && !location.active) return false
     if (statusFilter === 'inactive' && location.active) return false
-    
-    // Category filter - use type assertion to access category
-    const loc = location as Location & { category?: string }
-    if (categoryFilter !== 'all' && loc.category !== categoryFilter) return false
-    
+    if (categoryFilter !== 'all' && location.category !== categoryFilter) return false
     return true
   })
 
@@ -88,52 +82,27 @@ export default function LocationsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">Filters:</span>
-            
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
+        <div className="mb-6 flex items-center space-x-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+          </select>
 
-            {/* Category Filter */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Categories</option>
-              {LOCATION_CATEGORIES.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-
-            {/* Results Count */}
-            <span className="text-sm text-gray-600">
-              {filteredLocations?.length || 0} location{filteredLocations?.length !== 1 ? 's' : ''}
-            </span>
-
-            {/* Clear Filters */}
-            {(statusFilter !== 'all' || categoryFilter !== 'all') && (
-              <button
-                onClick={() => {
-                  setStatusFilter('all')
-                  setCategoryFilter('all')
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Categories</option>
+            {LOCATION_CATEGORIES.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
         </div>
 
         {isLoading ? (
@@ -150,9 +119,6 @@ export default function LocationsPage() {
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Address
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -167,7 +133,7 @@ export default function LocationsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLocations.map((location) => (
+                {filteredLocations.map((location: any) => (
                   <tr 
                     key={location.id} 
                     onClick={() => router.push(`/dashboard/locations/${location.id}`)}
@@ -176,17 +142,15 @@ export default function LocationsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="h-5 w-5 text-gray-400 mr-2" />
-                        <div className="text-sm font-medium text-gray-900">{location.name}</div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{location.name}</div>
+                          {location.category && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {location.category}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {(location as any).category ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {(location as any).category}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {location.address || 'N/A'}
@@ -229,28 +193,9 @@ export default function LocationsPage() {
         ) : (
           <div className="text-center py-12 bg-white rounded-lg shadow-md">
             <MapPin className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              {(statusFilter !== 'all' || categoryFilter !== 'all') 
-                ? 'No locations match your filters' 
-                : 'No locations'}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {(statusFilter !== 'all' || categoryFilter !== 'all')
-                ? 'Try adjusting your filters or add a new location.'
-                : 'Get started by adding a historical location.'}
-            </p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No locations</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by adding a historical location.</p>
             <div className="mt-6">
-              {(statusFilter !== 'all' || categoryFilter !== 'all') ? (
-                <button
-                  onClick={() => {
-                    setStatusFilter('all')
-                    setCategoryFilter('all')
-                  }}
-                  className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 mr-3"
-                >
-                  Clear Filters
-                </button>
-              ) : null}
               <Link
                 href="/dashboard/locations/new"
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

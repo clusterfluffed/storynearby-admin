@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search, Sparkles } from 'lucide-react'
+import { MapPin, Save, Upload, X, GripVertical, Globe, Facebook, Instagram, Youtube, Search, Sparkles, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import AdminNav from '@/app/components/AdminNav'
 
@@ -47,6 +47,34 @@ const LOCATION_CATEGORIES = [
   'Cultural Center',
   'Other'
 ]
+
+// Tooltip Component
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  
+  return (
+    <div className="relative inline-block ml-2">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={(e) => {
+          e.preventDefault()
+          setShow(!show)
+        }}
+        className="text-gray-400 hover:text-gray-600 focus:outline-none"
+      >
+        <HelpCircle className="h-4 w-4" />
+      </button>
+      {show && (
+        <div className="absolute left-6 top-0 z-50 w-64 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+          {text}
+          <div className="absolute left-0 top-2 transform -translate-x-1 w-0 h-0 border-t-4 border-t-transparent border-r-4 border-r-gray-900 border-b-4 border-b-transparent"></div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function NewLocationPage() {
   const router = useRouter()
@@ -96,6 +124,26 @@ export default function NewLocationPage() {
     }
   }
 
+  const fetchRemainingRequests = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/locations/ai-assist/remaining', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setRemainingAiRequests(data.remainingRequests)
+      }
+    } catch (err) {
+      console.error('Error fetching remaining requests:', err)
+    }
+  }
+
   const handleFindOnMap = async () => {
     if (!formData.address) {
       alert('Please enter an address first')
@@ -115,14 +163,12 @@ export default function NewLocationPage() {
           const lat = location.lat()
           const lng = location.lng()
 
-          // Update form data
           setFormData(prev => ({
             ...prev,
             lat: lat.toFixed(6),
             lng: lng.toFixed(6)
           }))
 
-          // Update map and marker
           if (googleMapRef.current && markerRef.current) {
             googleMapRef.current.setCenter({ lat, lng })
             googleMapRef.current.setZoom(16)
@@ -151,18 +197,13 @@ export default function NewLocationPage() {
     setAiAssisting(true)
 
     try {
-      // Get session token
       const { data: { session } } = await supabase.auth.getSession()
-      
-      console.log('Session check:', session ? 'Has session' : 'No session')
       
       if (!session) {
         alert('Please sign in to use AI Assist')
         setAiAssisting(false)
         return
       }
-
-      console.log('Making AI Assist request with token')
 
       const response = await fetch('/api/locations/ai-assist', {
         method: 'POST',
@@ -177,10 +218,7 @@ export default function NewLocationPage() {
         })
       })
 
-      console.log('Response status:', response.status)
-
       const result = await response.json()
-      console.log('Response data:', result)
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -194,7 +232,6 @@ export default function NewLocationPage() {
         return
       }
 
-      // Populate form with AI data
       setFormData(prev => ({
         ...prev,
         name: result.data.name,
@@ -206,7 +243,6 @@ export default function NewLocationPage() {
         website_url: result.data.website_url
       }))
 
-      // Update map
       if (result.data.lat && result.data.lng && googleMapRef.current && markerRef.current) {
         const lat = parseFloat(result.data.lat)
         const lng = parseFloat(result.data.lng)
@@ -240,7 +276,6 @@ export default function NewLocationPage() {
     })
   }
 
-  // Get tenant ID
   useEffect(() => {
     async function getTenant() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -262,7 +297,6 @@ export default function NewLocationPage() {
     getTenant()
   }, [router])
 
-  // Initialize Google Maps
   useEffect(() => {
     if (!mapRef.current) return
 
@@ -292,7 +326,6 @@ export default function NewLocationPage() {
 
       markerRef.current = marker
 
-      // Update coordinates when marker is dragged
       marker.addListener('dragend', () => {
         const position = marker.getPosition()
         if (position) {
@@ -304,7 +337,6 @@ export default function NewLocationPage() {
         }
       })
 
-      // Try to get user's location
       if (navigator.geolocation && !hasCoords) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -326,7 +358,6 @@ export default function NewLocationPage() {
       }
     }
 
-    // Load Google Maps script if not already loaded
     // @ts-ignore
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
       const script = document.createElement('script')
@@ -340,7 +371,6 @@ export default function NewLocationPage() {
     }
   }, [])
 
-  // Update marker position when coordinates change
   useEffect(() => {
     if (markerRef.current && formData.lat && formData.lng) {
       const lat = parseFloat(formData.lat)
@@ -447,7 +477,6 @@ export default function NewLocationPage() {
     setSaving(true)
 
     try {
-      // Create location first to get ID
       const { data: location, error: locationError } = await supabase
         .from('locations')
         .insert({
@@ -473,7 +502,6 @@ export default function NewLocationPage() {
 
       if (locationError) throw locationError
 
-      // Upload images if any
       let imageUrls: string[] = []
       if (imageFiles.length > 0) {
         setUploadingImages(true)
@@ -499,7 +527,6 @@ export default function NewLocationPage() {
           imageUrls.push(publicUrl)
         }
 
-        // Update location with image URLs
         const { error: updateError } = await supabase
           .from('locations')
           .update({ images: imageUrls })
@@ -545,9 +572,24 @@ export default function NewLocationPage() {
                 </p>
                 
                 {remainingAiRequests !== null && (
-                  <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      📊 <strong>{remainingAiRequests}</strong> AI requests remaining today
+                  <div className={`mb-4 rounded-lg p-3 border ${
+                    remainingAiRequests === 0 
+                      ? 'bg-red-50 border-red-200' 
+                      : remainingAiRequests <= 5 
+                      ? 'bg-yellow-50 border-yellow-200' 
+                      : 'bg-blue-50 border-blue-200'
+                  }`}>
+                    <p className={`text-sm font-medium ${
+                      remainingAiRequests === 0 
+                        ? 'text-red-800' 
+                        : remainingAiRequests <= 5 
+                        ? 'text-yellow-800' 
+                        : 'text-blue-800'
+                    }`}>
+                      {remainingAiRequests === 0 
+                        ? '⚠️ Daily limit reached (resets tomorrow)' 
+                        : `📊 ${remainingAiRequests} of 20 requests remaining today`
+                      }
                     </p>
                   </div>
                 )}
@@ -556,6 +598,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Historical Place Name *
+                      <Tooltip text="Enter the name of the historical location (e.g., Old Courthouse, Lincoln Memorial)" />
                     </label>
                     <input
                       type="text"
@@ -570,6 +613,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       City or County
+                      <Tooltip text="Optional: Helps AI find the correct location if there are multiple places with the same name" />
                     </label>
                     <input
                       type="text"
@@ -583,6 +627,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       State *
+                      <Tooltip text="Required: The state where this historical location is located" />
                     </label>
                     <input
                       type="text"
@@ -641,11 +686,15 @@ export default function NewLocationPage() {
               
               {/* 1. Images */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Images</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                  Images
+                  <Tooltip text="Upload photos of the historical location. The first image will be used as the cover photo. Drag to reorder images." />
+                </h2>
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Images
+                    <Tooltip text="Click to select multiple images. Images will be automatically compressed to optimize loading times." />
                   </label>
                   <div className="flex items-center justify-center w-full">
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -715,7 +764,10 @@ export default function NewLocationPage() {
                   <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
                   <button
                     type="button"
-                    onClick={() => setShowAiDialog(true)}
+                    onClick={() => {
+                      setShowAiDialog(true)
+                      fetchRemainingRequests()
+                    }}
                     className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
                   >
                     <Sparkles className="h-4 w-4 mr-1.5" />
@@ -726,6 +778,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Location Name *
+                      <Tooltip text="The name of the historical location as it will appear in the mobile app (e.g., 'Lincoln's Birthplace', 'Old Mill Historic Site')" />
                     </label>
                     <input
                       type="text"
@@ -739,6 +792,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Category
+                      <Tooltip text="Select the type of historical location. This helps visitors filter and discover sites by category." />
                     </label>
                     <select
                       value={formData.category}
@@ -761,6 +815,7 @@ export default function NewLocationPage() {
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">Active</span>
+                      <Tooltip text="Check this to make the location visible in the mobile app. Uncheck to hide it without deleting." />
                     </label>
 
                     <label className="flex items-center">
@@ -771,6 +826,7 @@ export default function NewLocationPage() {
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">Is Museum</span>
+                      <Tooltip text="Check if this location is a museum or has indoor exhibits that visitors can tour." />
                     </label>
 
                     <label className="flex items-center">
@@ -781,18 +837,21 @@ export default function NewLocationPage() {
                         className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">Open to Public</span>
+                      <Tooltip text="Check if visitors can access this location. Enables the operating hours schedule below." />
                     </label>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Description
+                      <Tooltip text="Write a compelling description of the historical significance, interesting facts, and what visitors can see. This is the main content shown in the mobile app." />
                     </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={10}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Tell the story of this location. What happened here? Who were the important people? What makes it historically significant?"
                     />
                   </div>
 
@@ -800,16 +859,15 @@ export default function NewLocationPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
                         Hours
+                        <Tooltip text="Set the operating hours for each day of the week. Check 'Closed' for days when the location is not open to visitors." />
                       </label>
                       <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        {/* Column Headers */}
                         <div className="grid grid-cols-7 gap-2 items-center text-xs font-semibold text-gray-600 mb-2 pb-2 border-b border-gray-300">
                           <div className="col-span-2">Day</div>
                           <div className="col-span-4 text-center">Hours of Operation</div>
                           <div className="col-span-1 text-center">Closed</div>
                         </div>
                         
-                        {/* Hours rows */}
                         <div className="space-y-2">
                           {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
                             const dayKey = day as keyof MuseumHours
@@ -863,7 +921,6 @@ export default function NewLocationPage() {
                   Location & Address
                 </h2>
                 
-                {/* Instructions */}
                 <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-900 font-medium mb-2">📍 How to set the location:</p>
                   <ul className="text-sm text-blue-800 space-y-1 ml-4">
@@ -877,6 +934,7 @@ export default function NewLocationPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Address
+                      <Tooltip text="Enter the street address of the location. This helps visitors find it and is used for the 'Find on Map' feature." />
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -911,6 +969,7 @@ export default function NewLocationPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Latitude *
+                        <Tooltip text="The latitude coordinate (north-south position). Required for map display. Use 'Find on Map' or drag the pin to set automatically." />
                       </label>
                       <input
                         type="text"
@@ -924,6 +983,7 @@ export default function NewLocationPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Longitude *
+                        <Tooltip text="The longitude coordinate (east-west position). Required for map display. Use 'Find on Map' or drag the pin to set automatically." />
                       </label>
                       <input
                         type="text"
@@ -939,12 +999,16 @@ export default function NewLocationPage() {
 
               {/* 4. Social Media & Website */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Social Media & Website</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Social Media & Website
+                  <Tooltip text="Add links to the location's online presence. These will appear as clickable links in the mobile app." />
+                </h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Globe className="h-4 w-4 inline mr-1" />
                       Website URL
+                      <Tooltip text="The official website for this location. Can be entered with or without https://" />
                     </label>
                     <input
                       type="text"
@@ -959,6 +1023,7 @@ export default function NewLocationPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Facebook className="h-4 w-4 inline mr-1" />
                       Facebook URL
+                      <Tooltip text="Link to the Facebook page for this location (e.g., facebook.com/yourpage)" />
                     </label>
                     <input
                       type="text"
@@ -973,6 +1038,7 @@ export default function NewLocationPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Instagram className="h-4 w-4 inline mr-1" />
                       Instagram URL
+                      <Tooltip text="Link to the Instagram profile for this location (e.g., instagram.com/yourpage)" />
                     </label>
                     <input
                       type="text"
@@ -987,6 +1053,7 @@ export default function NewLocationPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Youtube className="h-4 w-4 inline mr-1" />
                       YouTube URL
+                      <Tooltip text="Link to a YouTube channel or specific video about this location (e.g., youtube.com/@yourchannel)" />
                     </label>
                     <input
                       type="text"

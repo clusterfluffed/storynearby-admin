@@ -314,8 +314,8 @@ export default function Home() {
               <h3 className="text-white font-semibold mb-4">Contact</h3>
               <p className="text-gray-400">
                 Questions? We're here to help.<br />
-                <a href="mailto:support@historynearbyapp.com" className="hover:text-white transition-colors">
-                  support@historynearbyapp.com
+                <a href="mailto:info@historynearbyapp.com" className="hover:text-white transition-colors">
+                  info@historynearbyapp.com
                 </a>
               </p>
             </div>
